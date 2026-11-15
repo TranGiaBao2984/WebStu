@@ -1,0 +1,258 @@
+import Link from "next/link";
+import {
+  Plus,
+  CalendarClock,
+  MapPin,
+  TrendingUp,
+  ArrowDownLeft,
+  Wallet,
+  Images,
+} from "lucide-react";
+import { listBookings, listAllScheduleSessions } from "@/features/bookings/queries";
+import { getMonthlyFinanceReport } from "@/features/finance/queries";
+import { listAlbums } from "@/features/albums/queries";
+import { formatVND } from "@/lib/money";
+import {
+  formatDateVN,
+  formatTimeVN,
+  getDateKeyHCM,
+  getCurrentMonthStartHCM,
+} from "@/lib/date";
+import { vi } from "@/i18n/vi";
+import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+export default async function DashboardPage() {
+  const monthStart = getCurrentMonthStartHCM();
+  const currentMonthLabel = monthStart.slice(0, 7);
+
+  const [bookings, sessions, financeReport, albums] = await Promise.all([
+    listBookings(),
+    listAllScheduleSessions(),
+    getMonthlyFinanceReport(monthStart),
+    listAlbums(),
+  ]);
+
+  const todayKey = getDateKeyHCM();
+  const upcomingSessions = sessions
+    .filter((s) => getDateKeyHCM(s.startIso) >= todayKey)
+    .slice(0, 6);
+
+  const albumsWaitingAction = albums.filter((a) =>
+    ["client_done", "retouching"].includes(a.status)
+  );
+
+  const report = financeReport ?? {
+    delivered_sales: 0,
+    cash_in: 0,
+    customer_debt: 0,
+    net_profit: 0,
+  };
+
+  const columns = [
+    {
+      key: "pending",
+      title: vi.dashboard.columns.pending,
+      items: bookings.filter((b) => b.status === "pending"),
+    },
+    {
+      key: "confirmed",
+      title: vi.dashboard.columns.confirmed,
+      items: bookings.filter((b) => b.status === "confirmed"),
+    },
+    {
+      key: "shooting",
+      title: vi.dashboard.columns.shooting,
+      items: bookings.filter((b) => b.status === "shooting"),
+    },
+    {
+      key: "postProduction",
+      title: vi.dashboard.columns.postProduction,
+      items: bookings.filter((b) =>
+        ["selecting", "selected", "retouching", "retouched"].includes(b.status)
+      ),
+    },
+    {
+      key: "completed",
+      title: vi.dashboard.columns.completed,
+      items: bookings.filter((b) => b.status === "completed"),
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{vi.dashboard.title}</h1>
+          <p className="text-sm text-muted-foreground">{vi.dashboard.subtitle}</p>
+        </div>
+        <Link href="/bookings/new" className={buttonVariants()}>
+          <Plus className="mr-1.5 h-4 w-4" />
+          {vi.bookings.newBooking}
+        </Link>
+      </div>
+
+      {/* 4 Thẻ chỉ số nhanh */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Link href="/finance" className="block">
+          <Card className="h-full transition-colors hover:border-primary/50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Doanh thu tháng {currentMonthLabel}</span>
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+              <p className="mt-2 text-xl font-bold">{formatVND(report.delivered_sales)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Lợi nhuận ròng: {formatVND(report.net_profit ?? 0)}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/finance" className="block">
+          <Card className="h-full transition-colors hover:border-primary/50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Thực thu tháng {currentMonthLabel}</span>
+                <ArrowDownLeft className="h-4 w-4 text-emerald-600" />
+              </div>
+              <p className="mt-2 text-xl font-bold text-emerald-700">
+                {formatVND(report.cash_in)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tiền cọc & tất toán đã nhận
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/bookings" className="block">
+          <Card className="h-full transition-colors hover:border-primary/50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Tổng khách còn nợ</span>
+                <Wallet className="h-4 w-4 text-amber-600" />
+              </div>
+              <p className="mt-2 text-xl font-bold text-primary">
+                {formatVND(report.customer_debt)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Trên các lịch chưa hủy
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/albums" className="block">
+          <Card className="h-full transition-colors hover:border-primary/50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Album cần hậu kỳ</span>
+                <Images className="h-4 w-4 text-primary" />
+              </div>
+              <p className="mt-2 text-xl font-bold">{albumsWaitingAction.length} album</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Khách đã chốt ảnh hoặc đang retouch
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {/* Ca chụp hôm nay & sắp tới */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarClock className="h-4 w-4 text-primary" />
+            <span>{vi.dashboard.upcomingTitle}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {upcomingSessions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{vi.dashboard.upcomingEmpty}</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {upcomingSessions.map((s) => {
+                const isToday = getDateKeyHCM(s.startIso) === todayKey;
+                return (
+                  <Link
+                    key={s.id}
+                    href={`/bookings/${s.bookingId}`}
+                    className={`rounded-lg border p-3 transition-colors hover:border-primary/50 ${
+                      isToday ? "border-primary/40 bg-primary/5" : "bg-card"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs font-semibold text-primary">
+                      <span className="flex items-center gap-1.5">
+                        {isToday && (
+                          <Badge className="px-1.5 py-0 text-[10px]">Hôm nay</Badge>
+                        )}
+                        {formatDateVN(s.startIso)} • {formatTimeVN(s.startIso)} –{" "}
+                        {formatTimeVN(s.endIso)}
+                      </span>
+                      <span>{s.shortCode}</span>
+                    </div>
+                    <p className="mt-1.5 font-semibold">{s.bookingTitle}</p>
+                    <p className="text-xs text-muted-foreground">{s.clientName}</p>
+                    {s.location && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{s.location}</span>
+                      </p>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Bảng 5 cột tiến độ */}
+      <div className="space-y-3">
+        <h2 className="text-base font-semibold">{vi.dashboard.pipelineTitle}</h2>
+        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
+          {columns.map((col) => (
+            <Card key={col.key} className="bg-card/80">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center justify-between text-sm">
+                  <span>{col.title}</span>
+                  <Badge variant="secondary">{col.items.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                {col.items.length === 0 ? (
+                  <p className="py-4 text-center text-xs text-muted-foreground">
+                    {vi.common.empty}
+                  </p>
+                ) : (
+                  col.items.map((b) => (
+                    <Link
+                      key={b.id}
+                      href={`/bookings/${b.id}`}
+                      className="block rounded-lg border bg-background p-2.5 text-xs transition-all hover:border-primary/50 hover:shadow-xs"
+                    >
+                      <div className="flex items-center justify-between font-mono text-[11px] text-primary">
+                        <span>{b.shortCode}</span>
+                        <span>{b.paidPercent}%</span>
+                      </div>
+                      <p className="mt-1 line-clamp-1 font-semibold text-foreground">{b.title}</p>
+                      <p className="text-muted-foreground">{b.clientName}</p>
+                      {col.key === "postProduction" && (
+                        <Badge variant="outline" className="mt-1.5 text-[10px]">
+                          {vi.bookings.statuses[b.status]}
+                        </Badge>
+                      )}
+                      <p className="mt-1.5 font-semibold">{formatVND(b.total_price)}</p>
+                    </Link>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
