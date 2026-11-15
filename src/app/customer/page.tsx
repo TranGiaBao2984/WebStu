@@ -63,11 +63,11 @@ function AlbumCard({ album }: { album: AlbumSummary }) {
           <span className="text-[11px] uppercase tracking-[0.18em] text-[#a39e93] mb-1">
             {isHovered ? "Đang xem trước • Nhấn để mở" : `${album.count} tác phẩm`}
           </span>
-          <div className="flex items-center justify-between">
-            <h3 className="font-serif text-2xl tracking-wide text-[#F7F3E4]">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="[font-family:var(--font-customer-serif),serif] text-2xl font-medium tracking-normal text-[#F7F3E4]">
               {album.name}
             </h3>
-            <span className="text-sm text-[#F7F3E4] transform translate-x-0 group-hover:translate-x-1.5 transition-transform">
+            <span className="text-sm text-[#F7F3E4] shrink-0 transform translate-x-0 group-hover:translate-x-1.5 transition-transform">
               →
             </span>
           </div>
@@ -95,7 +95,7 @@ function GroupSection({
           <p className="text-[11px] uppercase tracking-[0.22em] text-[#a39e93] mb-1">
             {subtitle}
           </p>
-          <h2 className="font-serif text-3xl md:text-4xl font-normal tracking-wide">
+          <h2 className="[font-family:var(--font-customer-serif),serif] text-3xl md:text-4xl font-normal tracking-normal">
             {title}
           </h2>
         </div>
@@ -129,11 +129,11 @@ export default function CustomerAlbumsPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#171410] text-[#F7F3E4]">
       <header className="grid grid-cols-1 md:grid-cols-3 items-center px-[3vw] py-7 border-b border-[#F7F3E4]/10 sticky top-0 bg-[#171410]/95 backdrop-blur-md z-40 gap-3">
-        <div className="hidden md:block font-serif text-base tracking-wider">
+        <div className="hidden md:block [font-family:var(--font-customer-serif),serif] text-base tracking-wide">
           Ni Image
         </div>
 
-        <h1 className="font-serif text-xl md:text-2xl tracking-[0.14em] uppercase text-center">
+        <h1 className="[font-family:var(--font-customer-serif),serif] text-xl md:text-2xl tracking-[0.14em] uppercase text-center">
           {"NI'S IMAGES"}
         </h1>
 

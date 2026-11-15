@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,6 +9,7 @@ import {
   FileText,
   Users,
   Images,
+  Globe,
   Wallet,
   Settings,
   LogOut,
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/bookings/documents", label: vi.nav.documents, icon: FileText },
   { href: "/clients", label: vi.nav.clients, icon: Users },
   { href: "/albums", label: vi.nav.albums, icon: Images },
+  { href: "/portfolio", label: "Trang Portfolio", icon: Globe },
   { href: "/finance", label: vi.nav.finance, icon: Wallet },
   { href: "/settings", label: vi.nav.settings, icon: Settings },
 ] as const;
@@ -120,8 +122,8 @@ export function AppShell({
           NAV_ITEMS[0],
           NAV_ITEMS[1],
           NAV_ITEMS[2],
-          NAV_ITEMS[6],
           NAV_ITEMS[7],
+          NAV_ITEMS[8],
         ].map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);

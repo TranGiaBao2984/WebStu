@@ -10,8 +10,8 @@ function AlbumDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
 
-  const albumName = decodeURIComponent((params?.slug as string) || "");
-  const groupParam = searchParams.get("group");
+  const albumName = decodeURIComponent((params?.slug as string) || "").normalize("NFC");
+  const groupParam = searchParams.get("group")?.normalize("NFC") || null;
 
   const allPhotos = useSyncExternalStore(subscribePhotos, getPhotos, getServerPhotos);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -68,9 +68,9 @@ function AlbumDetailContent() {
 
         <Link
           href="/customer"
-          className="font-serif text-lg md:text-2xl tracking-[0.14em] uppercase text-center truncate"
+          className="[font-family:var(--font-customer-serif),serif] text-lg md:text-2xl tracking-[0.14em] uppercase text-center truncate"
         >
-          {"HOÀNG NGUYÊN'S IMAGES"}
+          {"NI'S IMAGES"}
         </Link>
 
         <div className="flex justify-end text-xs tracking-widest uppercase text-[#a39e93]">
@@ -86,7 +86,7 @@ function AlbumDetailContent() {
           <span>/</span>
           <span className="text-[#F7F3E4]">{displayGroup}</span>
         </div>
-        <h1 className="font-serif text-3xl md:text-5xl font-normal tracking-wide">
+        <h1 className="[font-family:var(--font-customer-serif),serif] text-3xl md:text-5xl font-normal tracking-normal">
           {albumName}
         </h1>
       </section>
@@ -120,7 +120,9 @@ function AlbumDetailContent() {
                   <span className="text-[11px] uppercase tracking-[0.15em] text-[#a39e93]">
                     {String(index + 1).padStart(2, "0")} / {String(albumPhotos.length).padStart(2, "0")}
                   </span>
-                  <h3 className="font-serif text-xl mt-0.5">{photo.title}</h3>
+                  <h3 className="[font-family:var(--font-customer-serif),serif] text-xl mt-0.5">
+                    {photo.title}
+                  </h3>
                 </div>
               </div>
             ))}
@@ -153,7 +155,7 @@ function AlbumDetailContent() {
           >
             ❯
           </button>
-          <div className="absolute bottom-6 font-serif text-lg tracking-wider">
+          <div className="absolute bottom-6 [font-family:var(--font-customer-serif),serif] text-lg tracking-wide">
             {albumPhotos[lightboxIndex].title}{" "}
             <span className="text-sm text-[#a39e93] ml-2">
               ({lightboxIndex + 1} / {albumPhotos.length})
@@ -163,7 +165,7 @@ function AlbumDetailContent() {
       )}
 
       <footer className="flex flex-col sm:flex-row justify-between items-center px-[3vw] py-8 border-t border-[#F7F3E4]/10 text-xs text-[#a39e93] gap-2">
-        <div>{"© 2026 HOÀNG NGUYÊN'S IMAGES. All rights reserved."}</div>
+        <div>{"© 2026 NI'S IMAGES. All rights reserved."}</div>
         <div>Fine Art & Portrait Photography</div>
       </footer>
     </div>

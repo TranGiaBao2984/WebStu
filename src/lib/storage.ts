@@ -33,23 +33,25 @@ const STORAGE_KEY = "hn_portfolio_photos";
 let cachedRaw: string | null = null;
 let cachedPhotos: PhotoItem[] = DEFAULT_PHOTOS;
 
+function normalizePhoto(item: PhotoItem): PhotoItem {
+  const rawGroup = (item.group || (item.category === "Ngoại cảnh" ? "Ngoại cảnh" : "Concept")).normalize("NFC");
+  return {
+    ...item,
+    title: (item.title || "").normalize("NFC"),
+    group: rawGroup === "Ngoại cảnh" ? "Ngoại cảnh" : "Concept",
+    album: (item.album || item.category || "Bộ sưu tập chung").normalize("NFC"),
+  };
+}
+
 export function getPhotos(): PhotoItem[] {
   if (typeof window === "undefined") return DEFAULT_PHOTOS;
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return DEFAULT_PHOTOS;
-  }
-  if (raw === cachedRaw) {
-    return cachedPhotos;
-  }
+  if (!raw) return DEFAULT_PHOTOS;
+  if (raw === cachedRaw) return cachedPhotos;
   try {
     const parsed = JSON.parse(raw) as PhotoItem[];
     cachedRaw = raw;
-    cachedPhotos = parsed.map((item) => ({
-      ...item,
-      group: item.group || (item.category === "Ngoại cảnh" ? "Ngoại cảnh" : "Concept"),
-      album: item.album || item.category || "Bộ sưu tập chung",
-    }));
+    cachedPhotos = parsed.map(normalizePhoto);
     return cachedPhotos;
   } catch {
     return DEFAULT_PHOTOS;
@@ -73,9 +75,10 @@ export function subscribePhotos(callback: () => void): () => void {
 
 export function savePhotos(photos: PhotoItem[]): void {
   if (typeof window === "undefined") return;
-  const raw = JSON.stringify(photos);
+  const normalized = photos.map(normalizePhoto);
+  const raw = JSON.stringify(normalized);
   cachedRaw = raw;
-  cachedPhotos = photos;
+  cachedPhotos = normalized;
   localStorage.setItem(STORAGE_KEY, raw);
   window.dispatchEvent(new Event("hn_photos_updated"));
 }
