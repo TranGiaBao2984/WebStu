@@ -1,20 +1,44 @@
-import type { PortfolioAlbumMeta } from "./types";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import type { MainGroup, PortfolioPhoto } from "./types";
+import type { PortfolioAlbumMeta, PortfolioPhoto } from "./types";
 
-function normalizeRow(row: Record<string, unknown>): PortfolioPhoto {
-  const rawGroup = String(row.group_name ?? "Concept").normalize("NFC");
-  return {
-    id: String(row.id ?? ""),
-    group_name: (rawGroup === "Ngoại cảnh" ? "Ngoại cảnh" : "Concept") as MainGroup,
-    album_name: String(row.album_name ?? "").normalize("NFC"),
-    title: String(row.title ?? "").normalize("NFC"),
-    image_url: String(row.image_url ?? ""),
-    sort_order: Number(row.sort_order ?? 0),
-    created_at: String(row.created_at ?? ""),
-  };
+function createPublicSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  if (!url || !anonKey) return null;
+
+  return createSupabaseClient(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
 }
 
+// Dùng cho trang khách hàng (/customer): Không gọi cookies() để Next.js build Static ISR (< 50ms)
+export async function listPublicPortfolioPhotos(): Promise<PortfolioPhoto[]> {
+  const publicClient = createPublicSupabaseClient();
+  const supabase = publicClient ?? (await createClient());
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("portfolio_photos")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as PortfolioPhoto[];
+}
+
+// Dùng cho trang quản trị Admin (/portfolio): Có phiên đăng nhập & cookies
 export async function listPortfolioPhotos(): Promise<PortfolioPhoto[]> {
   const supabase = await createClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,32 +52,7 @@ export async function listPortfolioPhotos(): Promise<PortfolioPhoto[]> {
     throw new Error(error.message);
   }
 
-  return ((data as Record<string, unknown>[]) ?? []).map(normalizeRow);
-}
-
-export async function listAlbumPhotos(
-  albumName: string,
-  groupName?: string | null
-): Promise<PortfolioPhoto[]> {
-  const supabase = await createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
-    .from("portfolio_photos")
-    .select("*")
-    .eq("album_name", albumName.normalize("NFC"))
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
-
-  if (groupName) {
-    query = query.eq("group_name", groupName.normalize("NFC"));
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    return [];
-  }
-
-  return ((data as Record<string, unknown>[]) ?? []).map(normalizeRow);
+  return (data ?? []) as PortfolioPhoto[];
 }
 
 export async function listPortfolioAlbumMeta(): Promise<PortfolioAlbumMeta[]> {
