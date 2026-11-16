@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { MainGroup } from "./types";
 
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -99,7 +99,13 @@ export async function uploadPortfolioImageAction(
     "image/avif": "avif",
   };
   const ext = extMap[file.type] || "jpg";
-  const filePath = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const safeName = file.name
+    .replace(/\.[^/.]+$/, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "_")
+    .slice(0, 40);
+  const filePath = `${Date.now()}-${safeName || "photo"}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from("portfolio")
@@ -196,6 +202,59 @@ export async function savePortfolioPhotoAction(input: {
   revalidatePortfolioRoutes();
 }
 
+export async function savePortfolioAlbumLinkAction(input: {
+  group_name: MainGroup;
+  album_name: string;
+  external_url: string;
+}): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Bạn không có quyền thực hiện thao tác này.");
+  }
+
+  const cleanAlbum = input.album_name.trim().normalize("NFC");
+  if (!cleanAlbum) {
+    throw new Error("Tên Album không hợp lệ.");
+  }
+
+  let cleanUrl: string | null = input.external_url.trim();
+  if (cleanUrl) {
+    if (!/^https?:\/\//i.test(cleanUrl)) {
+      cleanUrl = `https://${cleanUrl}`;
+    }
+    try {
+      new URL(cleanUrl);
+    } catch {
+      throw new Error("Đường dẫn link Album không đúng định dạng URL.");
+    }
+  } else {
+    cleanUrl = null;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from("portfolio_albums")
+    .upsert(
+      {
+        group_name: input.group_name,
+        album_name: cleanAlbum,
+        external_url: cleanUrl,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "group_name,album_name" }
+    );
+
+  if (error) {
+    throw new Error(`Không thể lưu link Album: ${error.message}`);
+  }
+
+  revalidatePortfolioRoutes();
+}
+
 export async function reorderPortfolioPhotosAction(
   orderedIds: string[]
 ): Promise<void> {
@@ -282,13 +341,22 @@ export async function renamePortfolioAlbumAction(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const db = supabase as any;
+  const oldNormalized = oldAlbumName.normalize("NFC");
+
+  const { error } = await db
     .from("portfolio_photos")
     .update({ album_name: cleanNewName, title: cleanNewName })
     .eq("group_name", groupName)
-    .eq("album_name", oldAlbumName.normalize("NFC"));
+    .eq("album_name", oldNormalized);
 
   if (error) throw new Error(error.message);
+
+  await db
+    .from("portfolio_albums")
+    .update({ album_name: cleanNewName })
+    .eq("group_name", groupName)
+    .eq("album_name", oldNormalized);
 
   revalidatePortfolioRoutes();
 }
@@ -323,6 +391,12 @@ export async function deletePortfolioAlbumAction(
     .eq("album_name", normalizedAlbum);
 
   if (error) throw new Error(error.message);
+
+  await db
+    .from("portfolio_albums")
+    .delete()
+    .eq("group_name", groupName)
+    .eq("album_name", normalizedAlbum);
 
   const pathsToRemove = ((existingRows as { image_url: string }[]) ?? [])
     .map((r) => extractStoragePath(r.image_url))

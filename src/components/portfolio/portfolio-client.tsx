@@ -13,6 +13,7 @@ import {
   FolderOpen,
   GripVertical,
   ImagePlus,
+  Link2,
   Loader2,
   Pencil,
   Sparkles,
@@ -26,12 +27,32 @@ import {
   deletePortfolioPhotoAction,
   renamePortfolioAlbumAction,
   reorderPortfolioPhotosAction,
+  savePortfolioAlbumLinkAction,
   savePortfolioPhotoAction,
   uploadPortfolioImageAction,
 } from "@/features/portfolio/actions";
-import type { MainGroup, PortfolioPhoto } from "@/features/portfolio/types";
+import type {
+  MainGroup,
+  PortfolioAlbumMeta,
+  PortfolioPhoto,
+} from "@/features/portfolio/types";
 
 const GROUP_OPTIONS: MainGroup[] = ["Concept", "Ngoại cảnh"];
+
+function extractOriginalFilename(url: string): string {
+  try {
+    const cleanUrl = url.split("?")[0];
+    const segments = cleanUrl.split("/");
+    const lastSegment = decodeURIComponent(segments[segments.length - 1] || "");
+    const hyphenIdx = lastSegment.indexOf("-");
+    if (hyphenIdx !== -1 && hyphenIdx <= 15) {
+      return lastSegment.slice(hyphenIdx + 1);
+    }
+    return lastSegment || "image.jpg";
+  } catch {
+    return "image.jpg";
+  }
+}
 
 function slugifyAlbum(name: string): string {
   return name
@@ -43,6 +64,12 @@ function slugifyAlbum(name: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function normalizeUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
 async function compressImageIfNeeded(file: File): Promise<File> {
@@ -109,12 +136,15 @@ async function compressImageIfNeeded(file: File): Promise<File> {
 
 export function PortfolioClient({
   initialPhotos,
+  initialAlbumMeta = [],
 }: {
   initialPhotos: PortfolioPhoto[];
+  initialAlbumMeta?: PortfolioAlbumMeta[];
 }) {
   const router = useRouter();
   const [optimisticOrder, setOptimisticOrder] = useState<Record<string, number>>({});
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [optimisticLinks, setOptimisticLinks] = useState<Record<string, string | null>>({});
 
   const photos = useMemo(() => {
     return initialPhotos
@@ -124,17 +154,29 @@ export function PortfolioClient({
       );
   }, [initialPhotos, optimisticOrder, hiddenIds]);
 
+  const albumLinkMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of initialAlbumMeta) {
+      if (m.external_url) {
+        map.set(`${m.group_name}::${m.album_name}`, m.external_url);
+      }
+    }
+    for (const [k, v] of Object.entries(optimisticLinks)) {
+      if (v) map.set(k, v);
+      else map.delete(k);
+    }
+    return map;
+  }, [initialAlbumMeta, optimisticLinks]);
+
   const [selectedGroup, setSelectedGroup] = useState<MainGroup>(GROUP_OPTIONS[0]);
   const [selectedAlbum, setSelectedAlbum] = useState<string>("");
 
-  // Trạng thái kéo thả sắp xếp vị trí ảnh
+  // Kéo thả sắp xếp
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const [orderStatus, setOrderStatus] = useState<"idle" | "saving" | "saved">(
-    "idle"
-  );
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Trạng thái tải nhiều ảnh lên nhanh
+  // Tải lên nhiều ảnh
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{
@@ -143,7 +185,12 @@ export function PortfolioClient({
     label: string;
   } | null>(null);
   const [newAlbumInput, setNewAlbumInput] = useState("");
+  const [newAlbumExternalUrl, setNewAlbumExternalUrl] = useState("");
   const [isCreatingAlbumMode, setIsCreatingAlbumMode] = useState(false);
+
+  // Popup gán & mở link cho từng Album khi bấm "Mở link Album"
+  const [isAlbumLinkModalOpen, setIsAlbumLinkModalOpen] = useState(false);
+  const [albumLinkDraft, setAlbumLinkDraft] = useState("");
 
   // Modal chỉnh sửa chi tiết ảnh
   const [editingPhoto, setEditingPhoto] = useState<PortfolioPhoto | null>(null);
@@ -156,6 +203,11 @@ export function PortfolioClient({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const [isPending, startTransition] = useTransition();
+
+  const flashStatus = (msg: string) => {
+    setStatusMessage(msg);
+    setTimeout(() => setStatusMessage(null), 2500);
+  };
 
   const albumsInGroup = useMemo(() => {
     const map = new Map<
@@ -185,13 +237,16 @@ export function PortfolioClient({
     return Array.from(map.values());
   }, [photos, selectedGroup]);
 
-  // Tính toán Album đang được chọn tự động mà không cần useEffect
   const resolvedSelectedAlbum = useMemo(() => {
     if (isCreatingAlbumMode) return "";
     if (albumsInGroup.length === 0) return "";
     const exists = albumsInGroup.some((a) => a.name === selectedAlbum);
     return exists ? selectedAlbum : albumsInGroup[0].name;
   }, [albumsInGroup, selectedAlbum, isCreatingAlbumMode]);
+
+  const currentAlbumExternalUrl = resolvedSelectedAlbum
+    ? albumLinkMap.get(`${selectedGroup}::${resolvedSelectedAlbum}`) || ""
+    : "";
 
   const existingAlbumsForEditGroup = useMemo(() => {
     const names = new Set<string>();
@@ -223,17 +278,14 @@ export function PortfolioClient({
     });
 
     setOptimisticOrder((prev) => ({ ...prev, ...nextOrderMap }));
-    setOrderStatus("saving");
 
     startTransition(async () => {
       try {
         await reorderPortfolioPhotosAction(reorderedAlbumList.map((p) => p.id));
-        setOrderStatus("saved");
-        setTimeout(() => setOrderStatus("idle"), 2000);
+        flashStatus("Đã lưu vị trí mới");
         router.refresh();
       } catch (err) {
         setOptimisticOrder({});
-        setOrderStatus("idle");
         alert(err instanceof Error ? err.message : "Lỗi lưu thứ tự ảnh.");
       }
     });
@@ -286,6 +338,18 @@ export function PortfolioClient({
       return;
     }
 
+    if (isCreatingAlbumMode && newAlbumExternalUrl.trim()) {
+      try {
+        await savePortfolioAlbumLinkAction({
+          group_name: selectedGroup,
+          album_name: targetAlbum,
+          external_url: newAlbumExternalUrl.trim(),
+        });
+      } catch {
+        // Bỏ qua nếu chưa khởi tạo bảng portfolio_albums
+      }
+    }
+
     for (let i = 0; i < imageFiles.length; i++) {
       const rawFile = imageFiles[i];
       setUploadProgress({
@@ -316,8 +380,46 @@ export function PortfolioClient({
       setIsCreatingAlbumMode(false);
       setSelectedAlbum(targetAlbum);
       setNewAlbumInput("");
+      setNewAlbumExternalUrl("");
     }
     router.refresh();
+  };
+
+  // Bấm "Mở link Album" -> Mở Popup gán / xem / mở link của Album hiện tại
+  const handleOpenAlbumLinkModal = () => {
+    if (!resolvedSelectedAlbum) return;
+    setAlbumLinkDraft(currentAlbumExternalUrl);
+    setIsAlbumLinkModalOpen(true);
+  };
+
+  const handleSaveAlbumLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resolvedSelectedAlbum) return;
+
+    const normalized = normalizeUrl(albumLinkDraft);
+    const key = `${selectedGroup}::${resolvedSelectedAlbum}`;
+
+    setOptimisticLinks((prev) => ({
+      ...prev,
+      [key]: normalized || null,
+    }));
+    setIsAlbumLinkModalOpen(false);
+
+    startTransition(async () => {
+      try {
+        await savePortfolioAlbumLinkAction({
+          group_name: selectedGroup,
+          album_name: resolvedSelectedAlbum,
+          external_url: albumLinkDraft.trim(),
+        });
+        flashStatus(
+          normalized ? "Đã lưu link cho Album" : "Đã gỡ link khỏi Album"
+        );
+        router.refresh();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Không thể lưu link Album.");
+      }
+    });
   };
 
   const handleRenameAlbum = () => {
@@ -426,6 +528,8 @@ export function PortfolioClient({
     });
   };
 
+  const draftPreviewUrl = normalizeUrl(albumLinkDraft);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -437,16 +541,10 @@ export function PortfolioClient({
         </div>
 
         <div className="flex items-center gap-2.5">
-          {orderStatus === "saving" && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Đang lưu thứ tự...
-            </span>
-          )}
-          {orderStatus === "saved" && (
+          {statusMessage && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-700">
               <Check className="h-3.5 w-3.5" />
-              Đã lưu vị trí mới
+              {statusMessage}
             </span>
           )}
 
@@ -506,6 +604,7 @@ export function PortfolioClient({
             {albumsInGroup.map((alb) => {
               const isSelected =
                 !isCreatingAlbumMode && alb.name === resolvedSelectedAlbum;
+              const hasLink = albumLinkMap.has(`${selectedGroup}::${alb.name}`);
               return (
                 <button
                   key={alb.name}
@@ -523,6 +622,14 @@ export function PortfolioClient({
                   <FolderOpen className="h-3.5 w-3.5" />
                   <span>{alb.name}</span>
                   <span className="text-muted-foreground">({alb.count})</span>
+                  {hasLink && (
+                    <span
+                      title="Album này đã được gắn link"
+                      className="inline-flex items-center text-emerald-600"
+                    >
+                      <Link2 className="h-3.5 w-3.5" />
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -532,6 +639,7 @@ export function PortfolioClient({
               onClick={() => {
                 setIsCreatingAlbumMode(true);
                 setNewAlbumInput("");
+                setNewAlbumExternalUrl("");
               }}
               className={`inline-flex h-9 items-center gap-1.5 rounded-xl border border-dashed px-3.5 text-xs font-medium transition-colors cursor-pointer ${
                 isCreatingAlbumMode
@@ -546,14 +654,23 @@ export function PortfolioClient({
 
           {!isCreatingAlbumMode && resolvedSelectedAlbum && (
             <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href={`/customer/${slugifyAlbum(resolvedSelectedAlbum)}`}
-                target="_blank"
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-muted/60 px-3 text-xs font-medium hover:bg-muted"
+              <button
+                type="button"
+                onClick={handleOpenAlbumLinkModal}
+                disabled={isPending}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium transition-colors cursor-pointer ${
+                  currentAlbumExternalUrl
+                    ? "bg-emerald-500/12 text-emerald-700 ring-1 ring-emerald-500/30 hover:bg-emerald-500/20"
+                    : "bg-muted/60 text-foreground hover:bg-muted"
+                }`}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                Mở link Album
-              </Link>
+                <span>Mở link Album</span>
+                {currentAlbumExternalUrl && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                )}
+              </button>
+
               <button
                 type="button"
                 onClick={handleRenameAlbum}
@@ -577,27 +694,45 @@ export function PortfolioClient({
         </div>
 
         {isCreatingAlbumMode && (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center rounded-xl bg-muted/40 p-3.5">
-            <label className="text-xs font-medium shrink-0">
-              Tên Album mới trong nhóm <strong>{selectedGroup}</strong>:
-            </label>
-            <input
-              type="text"
-              value={newAlbumInput}
-              onChange={(e) => setNewAlbumInput(e.target.value)}
-              placeholder="VD: Nàng Thơ Mùa Thu 2026..."
-              className="h-9 flex-1 rounded-lg border bg-background px-3 text-sm focus:border-primary focus:outline-none"
-              autoFocus
-            />
-            {albumsInGroup.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setIsCreatingAlbumMode(false)}
-                className="h-9 rounded-lg px-3 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                Hủy
-              </button>
-            )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl bg-muted/40 p-3.5">
+            <div>
+              <label className="block text-xs font-medium mb-1">
+                Tên Album mới trong nhóm <strong>{selectedGroup}</strong> *
+              </label>
+              <input
+                type="text"
+                value={newAlbumInput}
+                onChange={(e) => setNewAlbumInput(e.target.value)}
+                placeholder="VD: Nàng Thơ Mùa Thu 2026..."
+                className="h-9 w-full rounded-lg border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-medium mb-1">
+                  Link kho ảnh gốc của Album (tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  value={newAlbumExternalUrl}
+                  onChange={(e) => setNewAlbumExternalUrl(e.target.value)}
+                  placeholder="https://drive.google.com/drive/folders/..."
+                  className="h-9 w-full rounded-lg border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              {albumsInGroup.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingAlbumMode(false)}
+                  className="h-9 rounded-lg px-3 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  Hủy
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -681,7 +816,7 @@ export function PortfolioClient({
         )}
       </div>
 
-      {/* Lưới ảnh có thể kéo thả thay đổi vị trí */}
+      {/* Lưới ảnh */}
       {activeAlbumPhotos.length === 0 ? (
         <div className="rounded-2xl border bg-card p-12 text-center space-y-2">
           <p className="text-sm font-medium">Chưa có ảnh nào trong mục này</p>
@@ -727,7 +862,7 @@ export function PortfolioClient({
                     : "hover:border-foreground/25"
                 }`}
               >
-                <div className="relative aspect-4/5 w-full overflow-hidden bg-muted">
+                <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
                   <img
                     src={photo.image_url}
                     alt={`${photo.album_name} - Ảnh ${index + 1}`}
@@ -799,11 +934,19 @@ export function PortfolioClient({
                   </div>
                 </div>
 
-                {/* Chân thẻ gọn gàng: hiển thị Album & nút Sửa / Xóa */}
+                {/* Chân thẻ: hiển thị tên file gốc để dò trùng & nút Sửa / Xóa */}
                 <div className="flex items-center justify-between gap-2 px-3 py-2.5">
-                  <span className="min-w-0 flex-1 text-xs text-muted-foreground truncate">
-                    {photo.album_name}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="text-xs font-medium text-foreground truncate"
+                      title={extractOriginalFilename(photo.image_url)}
+                    >
+                      {extractOriginalFilename(photo.image_url)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {photo.album_name}
+                    </p>
+                  </div>
 
                   <div className="flex items-center gap-1 shrink-0">
                     <button
@@ -831,7 +974,100 @@ export function PortfolioClient({
         </div>
       )}
 
-      {/* Modal chỉnh sửa ảnh (Chỉ Danh mục, Album & Thay ảnh) */}
+      {/* Popup gán & mở link riêng cho từng Album */}
+      {isAlbumLinkModalOpen && (
+        <div
+          onClick={() => setIsAlbumLinkModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+        >
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleSaveAlbumLink}
+            className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl space-y-4"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="text-base font-bold truncate">
+                  Link Album: {resolvedSelectedAlbum}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Danh mục: {selectedGroup} • Chỉ hiển thị cho Admin đối chiếu
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAlbumLinkModalOpen(false)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg hover:bg-muted cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium">
+                Đường dẫn kho ảnh gốc (Google Drive / Facebook / Flickr...)
+              </label>
+              <input
+                type="text"
+                value={albumLinkDraft}
+                onChange={(e) => setAlbumLinkDraft(e.target.value)}
+                placeholder="https://drive.google.com/drive/folders/..."
+                className="h-10 w-full rounded-xl border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                autoFocus
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Dán link vào ô trên rồi bấm <strong>Lưu link</strong>. Xóa trắng ô nếu muốn gỡ link.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t">
+              {draftPreviewUrl ? (
+                <a
+                  href={draftPreviewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-emerald-500/12 px-3.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-500/20"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Mở link ngay
+                </a>
+              ) : (
+                <span />
+              )}
+
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsAlbumLinkModalOpen(false)}
+                  className="h-10 rounded-xl px-4 text-sm font-medium hover:bg-muted cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="h-10 rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
+                >
+                  Lưu link
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-1 text-right">
+              <Link
+                href={`/customer/${slugifyAlbum(resolvedSelectedAlbum)}`}
+                target="_blank"
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Mở trang khách của Album này
+              </Link>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Modal chỉnh sửa ảnh */}
       {editingPhoto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <form

@@ -1,4 +1,5 @@
-﻿import { createClient } from "@/lib/supabase/server";
+import type { PortfolioAlbumMeta } from "./types";
+import { createClient } from "@/lib/supabase/server";
 import type { MainGroup, PortfolioPhoto } from "./types";
 
 function normalizeRow(row: Record<string, unknown>): PortfolioPhoto {
@@ -53,4 +54,17 @@ export async function listAlbumPhotos(
   }
 
   return ((data as Record<string, unknown>[]) ?? []).map(normalizeRow);
+}
+
+export async function listPortfolioAlbumMeta(): Promise<PortfolioAlbumMeta[]> {
+  const supabase = await createClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("portfolio_albums")
+    .select("id, group_name, album_name, external_url");
+
+  if (error) {
+    return [];
+  }
+  return (data ?? []) as PortfolioAlbumMeta[];
 }

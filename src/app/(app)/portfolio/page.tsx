@@ -1,8 +1,9 @@
-import { listPortfolioPhotos } from "@/features/portfolio/queries";
+import {  listPortfolioPhotos , listPortfolioAlbumMeta } from "@/features/portfolio/queries";
 import { PortfolioClient } from "@/components/portfolio/portfolio-client";
 import type { PortfolioPhoto } from "@/features/portfolio/types";
 
 export default async function PortfolioManagerPage() {
+  const albumMeta = await listPortfolioAlbumMeta();
   let photos: PortfolioPhoto[] = [];
   let dbError: string | null = null;
 
@@ -16,5 +17,5 @@ export default async function PortfolioManagerPage() {
         : "Chưa kết nối được bảng portfolio_photos trên Supabase.";
   }
 
-  return <PortfolioClient initialPhotos={photos} />;
+  return <PortfolioClient initialPhotos={photos} initialAlbumMeta={albumMeta} />;
 }

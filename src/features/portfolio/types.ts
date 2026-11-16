@@ -1,4 +1,4 @@
-﻿export type MainGroup = "Concept" | "Ngoại cảnh";
+export type MainGroup = "Concept" | "Ngoại cảnh";
 
 export interface PortfolioPhoto {
   id: string;
@@ -38,4 +38,11 @@ export function groupPhotosByAlbum(
     count: albumPhotos.length,
     photos: albumPhotos,
   }));
+}
+
+export interface PortfolioAlbumMeta {
+  id: string;
+  group_name: MainGroup;
+  album_name: string;
+  external_url: string | null;
 }
