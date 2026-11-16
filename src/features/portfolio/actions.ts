@@ -56,7 +56,7 @@ function extractStoragePath(publicUrl: string): string | null {
 }
 
 function revalidatePortfolioRoutes() {
-  revalidatePath("/customer");
+  revalidatePath("/customer", "layout");
   revalidatePath("/customer/[slug]", "page");
   revalidatePath("/portfolio");
 }

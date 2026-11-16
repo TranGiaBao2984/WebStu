@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   type AlbumSummary,
@@ -10,9 +10,16 @@ import {
   type PortfolioPhoto,
 } from "@/features/portfolio/types";
 
-function AlbumCard({ album }: { album: AlbumSummary }) {
+function AlbumCard({
+  album,
+  priority = false,
+}: {
+  album: AlbumSummary;
+  priority?: boolean;
+}) {
   const [previewIdx, setPreviewIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const preloadedRef = useRef(false);
 
   useEffect(() => {
     if (!isHovered || album.photos.length <= 1) return;
@@ -22,13 +29,24 @@ function AlbumCard({ album }: { album: AlbumSummary }) {
     return () => clearInterval(timer);
   }, [isHovered, album.photos.length]);
 
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (!preloadedRef.current && album.photos.length > 1) {
+      preloadedRef.current = true;
+      album.photos.slice(1, 6).forEach((p) => {
+        const img = new window.Image();
+        img.src = p.image_url;
+      });
+    }
+  };
+
   const activeIdx = isHovered ? previewIdx : 0;
   const activePhoto = album.photos[activeIdx] || album.photos[0];
 
   return (
     <Link
       href={`/customer/${encodeURIComponent(album.name)}?group=${encodeURIComponent(album.group)}`}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={() => {
         setIsHovered(false);
         setPreviewIdx(0);
@@ -36,15 +54,20 @@ function AlbumCard({ album }: { album: AlbumSummary }) {
       className="group block"
     >
       <div className="relative aspect-2/3 overflow-hidden bg-[#1f1b16] border border-[#F7F3E4]/10">
-        <img
-          src={activePhoto?.image_url}
-          alt={album.name}
-          loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-        />
+        {activePhoto?.image_url && (
+          <Image
+            src={activePhoto.image_url}
+            alt={album.name}
+            fill
+            priority={priority}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            quality={82}
+            className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+          />
+        )}
 
         {album.photos.length > 1 && (
-          <div className="absolute top-3 inset-x-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="absolute top-3 inset-x-3 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             {album.photos.slice(0, 6).map((p, idx) => (
               <div
                 key={p.id}
@@ -58,7 +81,7 @@ function AlbumCard({ album }: { album: AlbumSummary }) {
           </div>
         )}
 
-        <div className="absolute inset-0 bg-linear-to-t from-[#171410]/90 via-[#171410]/20 to-transparent opacity-90 group-hover:opacity-95 transition-opacity flex flex-col justify-end p-4 sm:p-6">
+        <div className="absolute inset-0 z-10 bg-linear-to-t from-[#171410]/90 via-[#171410]/20 to-transparent opacity-90 group-hover:opacity-95 transition-opacity flex flex-col justify-end p-4 sm:p-6">
           <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.18em] text-[#a39e93] mb-1">
             {isHovered ? "Đang xem trước • Nhấn để mở" : `${album.count} tác phẩm`}
           </span>
@@ -81,11 +104,13 @@ function GroupSection({
   subtitle,
   title,
   albums,
+  prioritizeFirstRow = false,
 }: {
   id: string;
   subtitle: string;
   title: string;
   albums: AlbumSummary[];
+  prioritizeFirstRow?: boolean;
 }) {
   return (
     <section id={id} className="scroll-mt-28">
@@ -109,8 +134,12 @@ function GroupSection({
         </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-          {albums.map((album) => (
-            <AlbumCard key={`${album.group}-${album.name}`} album={album} />
+          {albums.map((album, idx) => (
+            <AlbumCard
+              key={`${album.group}-${album.name}`}
+              album={album}
+              priority={prioritizeFirstRow && idx < 3}
+            />
           ))}
         </div>
       )}
@@ -192,6 +221,7 @@ export function CustomerPortfolioClient({
             subtitle="01 / Studio & Creative"
             title="Concepts"
             albums={conceptAlbums}
+            prioritizeFirstRow
           />
         )}
 
@@ -201,6 +231,7 @@ export function CustomerPortfolioClient({
             subtitle="02 / Natural Light & Outdoor"
             title="Ngoại cảnh"
             albums={outdoorAlbums}
+            prioritizeFirstRow={activeTab === "Ngoại cảnh"}
           />
         )}
       </main>

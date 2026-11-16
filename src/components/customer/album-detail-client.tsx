@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { PortfolioPhoto } from "@/features/portfolio/types";
 
@@ -16,6 +17,19 @@ export function AlbumDetailClient({
 }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
+
+  // Tải trước ảnh kế tiếp và ảnh trước đó khi đang mở Lightbox để lướt không độ trễ
+  useEffect(() => {
+    if (lightboxIndex === null || albumPhotos.length <= 1) return;
+    const nextIdx = (lightboxIndex + 1) % albumPhotos.length;
+    const prevIdx = (lightboxIndex - 1 + albumPhotos.length) % albumPhotos.length;
+
+    const nextImg = new window.Image();
+    nextImg.src = albumPhotos[nextIdx].image_url;
+
+    const prevImg = new window.Image();
+    prevImg.src = albumPhotos[prevIdx].image_url;
+  }, [lightboxIndex, albumPhotos]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -109,13 +123,16 @@ export function AlbumDetailClient({
                 onClick={() => setLightboxIndex(index)}
                 className="group relative aspect-[2/3] overflow-hidden bg-[#1f1b16] cursor-pointer"
               >
-                <img
+                <Image
                   src={photo.image_url}
                   alt={`${albumName} - ${index + 1}`}
-                  loading="lazy"
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                  fill
+                  priority={index < 6}
+                  sizes="(max-width: 768px) 50vw, 33vw"
+                  quality={82}
+                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#171410]/80 via-transparent to-transparent opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 sm:p-6">
+                <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#171410]/80 via-transparent to-transparent opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 sm:p-6">
                   <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.15em] text-[#a39e93]">
                     {String(index + 1).padStart(2, "0")} /{" "}
                     {String(albumPhotos.length).padStart(2, "0")}

@@ -115,13 +115,13 @@ async function compressImageIfNeeded(file: File): Promise<File> {
           }
           const compressed = new File(
             [blob],
-            file.name.replace(/\.[^/.]+$/, ".jpg"),
-            { type: "image/jpeg" }
+            file.name.replace(/\.[^/.]+$/, ".webp"),
+            { type: "image/webp" }
           );
           resolve(compressed.size < file.size ? compressed : file);
         },
-        "image/jpeg",
-        0.88
+        "image/webp",
+        0.86
       );
     };
 
