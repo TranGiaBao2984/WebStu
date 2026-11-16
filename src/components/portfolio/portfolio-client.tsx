@@ -188,7 +188,7 @@ export function PortfolioClient({
   const [newAlbumExternalUrl, setNewAlbumExternalUrl] = useState("");
   const [isCreatingAlbumMode, setIsCreatingAlbumMode] = useState(false);
 
-  // Popup gán & mở link cho từng Album khi bấm "Mở link Album"
+  // Popup gán & mở link cho từng Album
   const [isAlbumLinkModalOpen, setIsAlbumLinkModalOpen] = useState(false);
   const [albumLinkDraft, setAlbumLinkDraft] = useState("");
 
@@ -199,8 +199,9 @@ export function PortfolioClient({
   const [editUrl, setEditUrl] = useState("");
   const [isReplacingFile, setIsReplacingFile] = useState(false);
 
-  // Lightbox xem ảnh lớn
+  // Lightbox xem ảnh lớn + hỗ trợ vuốt cảm ứng trên điện thoại/iPad
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
 
   const [isPending, startTransition] = useTransition();
 
@@ -385,7 +386,6 @@ export function PortfolioClient({
     router.refresh();
   };
 
-  // Bấm "Mở link Album" -> Mở Popup gán / xem / mở link của Album hiện tại
   const handleOpenAlbumLinkModal = () => {
     if (!resolvedSelectedAlbum) return;
     setAlbumLinkDraft(currentAlbumExternalUrl);
@@ -531,16 +531,19 @@ export function PortfolioClient({
   const draftPreviewUrl = normalizeUrl(albumLinkDraft);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Tiêu đề & Nút xem trang khách responsive */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Quản lý Portfolio</h1>
-          <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
-            Kéo thả để sắp xếp thứ tự hiển thị ảnh, tải lên hàng loạt theo từng Album và đồng bộ trực tiếp ra trang khách hàng.
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+            Quản lý Portfolio
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl leading-relaxed mt-0.5">
+            Sắp xếp thứ tự hiển thị ảnh, tải lên hàng loạt theo từng Album và đồng bộ trực tiếp ra trang khách hàng.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
           {statusMessage && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-700">
               <Check className="h-3.5 w-3.5" />
@@ -551,7 +554,7 @@ export function PortfolioClient({
           <Link
             href="/customer"
             target="_blank"
-            className="inline-flex h-10 items-center gap-2 rounded-xl border bg-card px-4 text-sm font-medium hover:bg-accent transition-colors"
+            className="inline-flex h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border bg-card px-4 text-sm font-medium hover:bg-accent transition-colors"
           >
             <ExternalLink className="h-4 w-4" />
             Xem trang khách
@@ -559,10 +562,12 @@ export function PortfolioClient({
         </div>
       </div>
 
-      {/* Thanh chọn Nhóm danh mục chính */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Thanh chọn Nhóm danh mục chính: cuộn ngang mượt trên điện thoại, wrap trên iPad/PC */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
         {GROUP_OPTIONS.map((grp) => {
-          const count = new Set(photos.filter((p) => p.group_name === grp).map((p) => p.album_name)).size;
+          const count = new Set(
+            photos.filter((p) => p.group_name === grp).map((p) => p.album_name)
+          ).size;
           const active = grp === selectedGroup;
           return (
             <button
@@ -572,7 +577,7 @@ export function PortfolioClient({
                 setSelectedGroup(grp);
                 setIsCreatingAlbumMode(false);
               }}
-              className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-all cursor-pointer ${
+              className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-all cursor-pointer ${
                 active
                   ? "bg-primary text-primary-foreground shadow-2xs"
                   : "bg-card border text-foreground hover:bg-accent"
@@ -594,10 +599,11 @@ export function PortfolioClient({
       </div>
 
       {/* Khu vực quản lý Album & Tải ảnh nhanh */}
-      <div className="rounded-2xl border bg-card p-5 space-y-5">
+      <div className="rounded-2xl border bg-card p-3.5 sm:p-5 space-y-4 sm:space-y-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-1">
+          {/* Danh sách Album: vuốt ngang trên điện thoại/iPad nhỏ, wrap trên màn lớn */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-1 shrink-0">
               Album:
             </span>
 
@@ -613,14 +619,16 @@ export function PortfolioClient({
                     setIsCreatingAlbumMode(false);
                     setSelectedAlbum(alb.name);
                   }}
-                  className={`inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-xs font-medium transition-all cursor-pointer ${
+                  className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-xl px-3.5 text-xs font-medium transition-all cursor-pointer ${
                     isSelected
                       ? "bg-primary/12 text-primary ring-1 ring-primary/40"
                       : "bg-muted/50 text-foreground hover:bg-muted"
                   }`}
                 >
-                  <FolderOpen className="h-3.5 w-3.5" />
-                  <span>{alb.name}</span>
+                  <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+                  <span className="max-w-[160px] sm:max-w-none truncate">
+                    {alb.name}
+                  </span>
                   <span className="text-muted-foreground">({alb.count})</span>
                   {hasLink && (
                     <span
@@ -641,7 +649,7 @@ export function PortfolioClient({
                 setNewAlbumInput("");
                 setNewAlbumExternalUrl("");
               }}
-              className={`inline-flex h-9 items-center gap-1.5 rounded-xl border border-dashed px-3.5 text-xs font-medium transition-colors cursor-pointer ${
+              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-dashed px-3.5 text-xs font-medium transition-colors cursor-pointer ${
                 isCreatingAlbumMode
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
@@ -652,22 +660,23 @@ export function PortfolioClient({
             </button>
           </div>
 
+          {/* 3 nút thao tác Album: chia 3 cột đều nhau trên điện thoại, inline trên iPad/PC */}
           {!isCreatingAlbumMode && resolvedSelectedAlbum && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={handleOpenAlbumLinkModal}
                 disabled={isPending}
-                className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium transition-colors cursor-pointer ${
+                className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-2.5 sm:px-3 text-xs font-medium transition-colors cursor-pointer ${
                   currentAlbumExternalUrl
                     ? "bg-emerald-500/12 text-emerald-700 ring-1 ring-emerald-500/30 hover:bg-emerald-500/20"
                     : "bg-muted/60 text-foreground hover:bg-muted"
                 }`}
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-                <span>Mở link Album</span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Mở link</span>
                 {currentAlbumExternalUrl && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-600" />
                 )}
               </button>
 
@@ -675,26 +684,27 @@ export function PortfolioClient({
                 type="button"
                 onClick={handleRenameAlbum}
                 disabled={isPending}
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-muted/60 px-3 text-xs font-medium hover:bg-muted cursor-pointer"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-muted/60 px-2.5 sm:px-3 text-xs font-medium hover:bg-muted cursor-pointer"
               >
-                <Pencil className="h-3.5 w-3.5" />
-                Đổi tên Album
+                <Pencil className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Đổi tên</span>
               </button>
+
               <button
                 type="button"
                 onClick={handleDeleteAlbum}
                 disabled={isPending}
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-destructive/10 px-3 text-xs font-medium text-destructive hover:bg-destructive/20 cursor-pointer"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-destructive/10 px-2.5 sm:px-3 text-xs font-medium text-destructive hover:bg-destructive/20 cursor-pointer"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                Xóa Album
+                <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Xóa Album</span>
               </button>
             </div>
           )}
         </div>
 
         {isCreatingAlbumMode && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl bg-muted/40 p-3.5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 rounded-xl bg-muted/40 p-3.5">
             <div>
               <label className="block text-xs font-medium mb-1">
                 Tên Album mới trong nhóm <strong>{selectedGroup}</strong> *
@@ -704,12 +714,12 @@ export function PortfolioClient({
                 value={newAlbumInput}
                 onChange={(e) => setNewAlbumInput(e.target.value)}
                 placeholder="VD: Nàng Thơ Mùa Thu 2026..."
-                className="h-9 w-full rounded-lg border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                className="h-10 w-full rounded-lg border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                 autoFocus
               />
             </div>
 
-            <div className="flex items-end gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-2">
               <div className="flex-1">
                 <label className="block text-xs font-medium mb-1">
                   Link kho ảnh gốc của Album (tùy chọn)
@@ -719,7 +729,7 @@ export function PortfolioClient({
                   value={newAlbumExternalUrl}
                   onChange={(e) => setNewAlbumExternalUrl(e.target.value)}
                   placeholder="https://drive.google.com/drive/folders/..."
-                  className="h-9 w-full rounded-lg border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                  className="h-10 w-full rounded-lg border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                 />
               </div>
 
@@ -727,7 +737,7 @@ export function PortfolioClient({
                 <button
                   type="button"
                   onClick={() => setIsCreatingAlbumMode(false)}
-                  className="h-9 rounded-lg px-3 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                  className="h-10 rounded-lg border sm:border-0 px-3 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   Hủy
                 </button>
@@ -753,7 +763,7 @@ export function PortfolioClient({
           onClick={() => {
             if (!uploadProgress) fileInputRef.current?.click();
           }}
-          className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition-all cursor-pointer ${
+          className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-5 sm:p-6 text-center transition-all cursor-pointer ${
             isDraggingFiles
               ? "border-primary bg-primary/8"
               : "border-border/80 bg-muted/25 hover:border-primary/50 hover:bg-muted/40"
@@ -779,7 +789,7 @@ export function PortfolioClient({
               <p className="text-sm font-medium">
                 Đang tối ưu & tải ảnh {uploadProgress.current}/{uploadProgress.total}...
               </p>
-              <p className="text-xs text-muted-foreground truncate max-w-xs mx-auto">
+              <p className="text-xs text-muted-foreground truncate max-w-[240px] sm:max-w-xs mx-auto">
                 {uploadProgress.label}
               </p>
             </div>
@@ -789,11 +799,11 @@ export function PortfolioClient({
                 <ImagePlus className="h-5 w-5" />
               </div>
               <p className="text-sm font-medium">
-                Kéo thả nhiều ảnh vào đây hoặc{" "}
-                <span className="text-primary underline">bấm để chọn từ máy</span>
+                <span className="hidden sm:inline">Kéo thả nhiều ảnh vào đây hoặc </span>
+                <span className="text-primary underline">chọn ảnh từ thư viện máy</span>
               </p>
-              <p className="text-xs text-muted-foreground">
-                Hỗ trợ chọn cùng lúc nhiều file (JPG, PNG, WEBP) • Tự động nén sắc nét & thêm vào{" "}
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Chọn nhiều ảnh cùng lúc (JPG, PNG, WEBP) • Thêm vào{" "}
                 <strong>{activeAlbumName || "Album mới"}</strong>
               </p>
             </div>
@@ -803,10 +813,12 @@ export function PortfolioClient({
 
       {/* Thanh hướng dẫn sắp xếp */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <GripVertical className="h-4 w-4 text-primary shrink-0" />
           <span>
-            Kéo thả thẻ ảnh để đổi vị trí hiển thị. Ảnh <strong>#1</strong> tự động làm ảnh bìa Album.
+            <span className="hidden lg:inline">Kéo thả thẻ ảnh hoặc dùng nút mũi tên </span>
+            <span className="lg:hidden">Dùng nút mũi tên trên ảnh </span>
+            để đổi vị trí. Ảnh <strong>#1</strong> làm bìa Album.
           </span>
         </div>
         {activeAlbumPhotos.length > 0 && (
@@ -816,16 +828,16 @@ export function PortfolioClient({
         )}
       </div>
 
-      {/* Lưới ảnh */}
+      {/* Lưới ảnh: 2 cột trên điện thoại, 3 cột trên iPad, 4 cột trên Desktop */}
       {activeAlbumPhotos.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-12 text-center space-y-2">
+        <div className="rounded-2xl border bg-card p-10 sm:p-12 text-center space-y-2">
           <p className="text-sm font-medium">Chưa có ảnh nào trong mục này</p>
           <p className="text-xs text-muted-foreground">
-            Hãy kéo thả hoặc chọn ảnh ở khung phía trên để bắt đầu xây dựng Album.
+            Hãy chọn ảnh từ thư viện ở khung phía trên để bắt đầu xây dựng Album.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
           {activeAlbumPhotos.map((photo, index) => {
             const isCover = index === 0;
             const isBeingDragged = draggedId === photo.id;
@@ -870,35 +882,37 @@ export function PortfolioClient({
                     draggable={false}
                   />
 
-                  <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5">
+                  <div className="absolute left-2 top-2 sm:left-2.5 sm:top-2.5 flex items-center gap-1">
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold shadow-xs backdrop-blur-md ${
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-semibold shadow-xs backdrop-blur-md ${
                         isCover
                           ? "bg-primary text-primary-foreground"
                           : "bg-black/65 text-white"
                       }`}
                     >
-                      <GripVertical className="h-3 w-3" />
-                      {isCover ? "#1 Ảnh bìa" : `#${index + 1}`}
+                      <GripVertical className="hidden lg:block h-3 w-3" />
+                      {isCover ? "#1 Bìa" : `#${index + 1}`}
                     </span>
                   </div>
 
+                  {/* Nút phóng to luôn hiện trên điện thoại/iPad, hover hiện trên Desktop */}
                   <button
                     type="button"
                     onClick={() => setLightboxIndex(index)}
                     title="Xem phóng to"
-                    className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80 cursor-pointer"
+                    className="absolute right-2 top-2 sm:right-2.5 sm:top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-100 lg:opacity-0 lg:group-hover:opacity-100 hover:bg-black/80 transition-opacity cursor-pointer"
                   >
                     <ZoomIn className="h-4 w-4" />
                   </button>
 
-                  <div className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-1 rounded-xl bg-black/75 p-1.5 text-white backdrop-blur-md opacity-95 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  {/* Thanh điều hướng vị trí luôn hiện trên điện thoại/iPad để bấm bằng ngón tay */}
+                  <div className="absolute inset-x-1.5 bottom-1.5 sm:inset-x-2 sm:bottom-2 flex items-center justify-between gap-1 rounded-xl bg-black/75 p-1 sm:p-1.5 text-white backdrop-blur-md opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                     <button
                       type="button"
                       disabled={index === 0 || isPending}
                       onClick={() => handleMoveIndex(index, index - 1)}
                       title="Di chuyển lên trước"
-                      className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/20 disabled:opacity-35 cursor-pointer"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/20 active:bg-white/30 disabled:opacity-35 cursor-pointer"
                     >
                       <ArrowLeft className="h-3.5 w-3.5" />
                     </button>
@@ -909,14 +923,14 @@ export function PortfolioClient({
                         disabled={isPending}
                         onClick={() => handleMoveIndex(index, 0)}
                         title="Đưa lên đầu làm ảnh bìa"
-                        className="inline-flex h-7 items-center gap-1 rounded-lg bg-white/15 px-2 text-xs font-medium hover:bg-white/25 cursor-pointer"
+                        className="inline-flex h-7 items-center gap-1 rounded-lg bg-white/15 px-1.5 sm:px-2 text-[11px] sm:text-xs font-medium hover:bg-white/25 active:bg-white/30 cursor-pointer"
                       >
-                        <ArrowUpToLine className="h-3 w-3" />
-                        Làm bìa
+                        <ArrowUpToLine className="h-3 w-3 shrink-0" />
+                        <span>Bìa</span>
                       </button>
                     ) : (
-                      <span className="text-xs text-white/75 px-1">
-                        Đang là ảnh bìa
+                      <span className="text-[11px] sm:text-xs text-white/75 px-1 truncate">
+                        Ảnh bìa
                       </span>
                     )}
 
@@ -927,36 +941,36 @@ export function PortfolioClient({
                       }
                       onClick={() => handleMoveIndex(index, index + 1)}
                       title="Di chuyển ra sau"
-                      className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/20 disabled:opacity-35 cursor-pointer"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/20 active:bg-white/30 disabled:opacity-35 cursor-pointer"
                     >
                       <ArrowRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Chân thẻ: hiển thị tên file gốc để dò trùng & nút Sửa / Xóa */}
-                <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+                {/* Chân thẻ gọn gàng cho cả điện thoại 2 cột & Desktop */}
+                <div className="flex items-center justify-between gap-1.5 px-2.5 py-2 sm:px-3 sm:py-2.5">
                   <div className="min-w-0 flex-1">
                     <p
-                      className="text-xs font-medium text-foreground truncate"
+                      className="text-[11px] sm:text-xs font-medium text-foreground truncate"
                       title={extractOriginalFilename(photo.image_url)}
                     >
                       {extractOriginalFilename(photo.image_url)}
                     </p>
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
                       {photo.album_name}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={() => openEditModal(photo)}
                       title="Đổi Album / Danh mục / Thay ảnh"
-                      className="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                      className="inline-flex h-7 w-7 sm:w-auto items-center justify-center gap-1 rounded-lg sm:px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
                     >
                       <Pencil className="h-3.5 w-3.5" />
-                      <span>Sửa</span>
+                      <span className="hidden sm:inline">Sửa</span>
                     </button>
                     <button
                       type="button"
@@ -974,16 +988,16 @@ export function PortfolioClient({
         </div>
       )}
 
-      {/* Popup gán & mở link riêng cho từng Album */}
+      {/* Popup gán & mở link riêng cho từng Album (Bottom-sheet trên điện thoại) */}
       {isAlbumLinkModalOpen && (
         <div
           onClick={() => setIsAlbumLinkModalOpen(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
         >
           <form
             onClick={(e) => e.stopPropagation()}
             onSubmit={handleSaveAlbumLink}
-            className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl space-y-4"
+            className="w-full sm:max-w-md max-h-[90dvh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border bg-card p-5 sm:p-6 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:pb-6 shadow-xl space-y-4"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
@@ -997,7 +1011,7 @@ export function PortfolioClient({
               <button
                 type="button"
                 onClick={() => setIsAlbumLinkModalOpen(false)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg hover:bg-muted cursor-pointer"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl hover:bg-muted cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1012,7 +1026,7 @@ export function PortfolioClient({
                 value={albumLinkDraft}
                 onChange={(e) => setAlbumLinkDraft(e.target.value)}
                 placeholder="https://drive.google.com/drive/folders/..."
-                className="h-10 w-full rounded-xl border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                className="h-11 sm:h-10 w-full rounded-xl border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                 autoFocus
               />
               <p className="text-[11px] text-muted-foreground">
@@ -1020,7 +1034,7 @@ export function PortfolioClient({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t">
               {draftPreviewUrl ? (
                 <a
                   href={draftPreviewUrl}
@@ -1057,9 +1071,9 @@ export function PortfolioClient({
               <Link
                 href={`/customer/${slugifyAlbum(resolvedSelectedAlbum)}`}
                 target="_blank"
-                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
               >
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="h-3.5 w-3.5" />
                 Mở trang khách của Album này
               </Link>
             </div>
@@ -1067,26 +1081,30 @@ export function PortfolioClient({
         </div>
       )}
 
-      {/* Modal chỉnh sửa ảnh */}
+      {/* Modal chỉnh sửa ảnh (Bottom-sheet trên điện thoại) */}
       {editingPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <div
+          onClick={() => setEditingPhoto(null)}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
+        >
           <form
+            onClick={(e) => e.stopPropagation()}
             onSubmit={handleSaveEditModal}
-            className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl space-y-4"
+            className="w-full sm:max-w-md max-h-[90dvh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border bg-card p-5 sm:p-6 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:pb-6 shadow-xl space-y-4"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold">Chỉnh sửa ảnh</h2>
               <button
                 type="button"
                 onClick={() => setEditingPhoto(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-muted cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium mb-1">
                     Danh mục chính
@@ -1094,7 +1112,7 @@ export function PortfolioClient({
                   <select
                     value={editGroup}
                     onChange={(e) => setEditGroup(e.target.value as MainGroup)}
-                    className="h-10 w-full rounded-xl border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                    className="h-11 sm:h-10 w-full rounded-xl border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   >
                     {GROUP_OPTIONS.map((g) => (
                       <option key={g} value={g}>
@@ -1114,7 +1132,7 @@ export function PortfolioClient({
                     required
                     value={editAlbum}
                     onChange={(e) => setEditAlbum(e.target.value)}
-                    className="h-10 w-full rounded-xl border bg-background px-3 text-sm focus:border-primary focus:outline-none"
+                    className="h-11 sm:h-10 w-full rounded-xl border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
                   <datalist id="portfolio-album-suggestions">
                     {existingAlbumsForEditGroup.map((name) => (
@@ -1128,7 +1146,7 @@ export function PortfolioClient({
                 <label className="block text-xs font-medium mb-1">
                   Thay tệp ảnh khác (tùy chọn)
                 </label>
-                <label className="flex h-10 items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/30 px-3 text-xs font-medium hover:bg-muted/60 cursor-pointer">
+                <label className="flex h-11 sm:h-10 items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/30 px-3 text-xs font-medium hover:bg-muted/60 cursor-pointer">
                   {isReplacingFile ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1174,16 +1192,32 @@ export function PortfolioClient({
         </div>
       )}
 
-      {/* Lightbox xem phóng to ảnh */}
+      {/* Lightbox xem phóng to ảnh + hỗ trợ vuốt trái/phải trên điện thoại & iPad */}
       {lightboxIndex !== null && activeAlbumPhotos[lightboxIndex] && (
         <div
           onClick={() => setLightboxIndex(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onTouchStart={(e) => {
+            touchStartXRef.current = e.touches[0]?.clientX ?? null;
+          }}
+          onTouchEnd={(e) => {
+            if (touchStartXRef.current === null) return;
+            const endX = e.changedTouches[0]?.clientX ?? touchStartXRef.current;
+            const diff = touchStartXRef.current - endX;
+            touchStartXRef.current = null;
+            if (Math.abs(diff) > 45) {
+              if (diff > 0 && lightboxIndex < activeAlbumPhotos.length - 1) {
+                setLightboxIndex(lightboxIndex + 1);
+              } else if (diff < 0 && lightboxIndex > 0) {
+                setLightboxIndex(lightboxIndex - 1);
+              }
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/92 p-3 sm:p-4 select-none"
         >
           <button
             type="button"
             onClick={() => setLightboxIndex(null)}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 cursor-pointer"
+            className="absolute right-3 top-3 sm:right-4 sm:top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -1195,7 +1229,7 @@ export function PortfolioClient({
                 e.stopPropagation();
                 setLightboxIndex(lightboxIndex - 1);
               }}
-              className="absolute left-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 cursor-pointer"
+              className="absolute left-2.5 sm:left-4 z-10 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 cursor-pointer"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -1203,14 +1237,14 @@ export function PortfolioClient({
 
           <div
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[88vh] max-w-4xl flex flex-col items-center gap-3"
+            className="max-h-[88dvh] max-w-4xl flex flex-col items-center gap-3"
           >
             <img
               src={activeAlbumPhotos[lightboxIndex].image_url}
               alt={`${activeAlbumName} - Ảnh ${lightboxIndex + 1}`}
-              className="max-h-[80vh] w-auto rounded-xl object-contain"
+              className="max-h-[76dvh] sm:max-h-[80dvh] w-auto rounded-xl object-contain"
             />
-            <p className="text-sm font-medium text-white">
+            <p className="text-xs sm:text-sm font-medium text-white text-center px-4">
               #{lightboxIndex + 1} / {activeAlbumPhotos.length} • {activeAlbumName}
             </p>
           </div>
@@ -1222,7 +1256,7 @@ export function PortfolioClient({
                 e.stopPropagation();
                 setLightboxIndex(lightboxIndex + 1);
               }}
-              className="absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 cursor-pointer"
+              className="absolute right-2.5 sm:right-4 z-10 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 cursor-pointer"
             >
               <ArrowRight className="h-5 w-5" />
             </button>

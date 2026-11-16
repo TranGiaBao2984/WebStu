@@ -1,4 +1,4 @@
-﻿/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -39,6 +39,7 @@ function AlbumCard({ album }: { album: AlbumSummary }) {
         <img
           src={activePhoto?.image_url}
           alt={album.name}
+          loading="lazy"
           className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
         />
 
@@ -57,12 +58,12 @@ function AlbumCard({ album }: { album: AlbumSummary }) {
           </div>
         )}
 
-        <div className="absolute inset-0 bg-linear-to-t from-[#171410]/85 via-transparent to-transparent opacity-80 group-hover:opacity-95 transition-opacity flex flex-col justify-end p-6">
-          <span className="text-[11px] uppercase tracking-[0.18em] text-[#a39e93] mb-1">
+        <div className="absolute inset-0 bg-linear-to-t from-[#171410]/90 via-[#171410]/20 to-transparent opacity-90 group-hover:opacity-95 transition-opacity flex flex-col justify-end p-4 sm:p-6">
+          <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.18em] text-[#a39e93] mb-1">
             {isHovered ? "Đang xem trước • Nhấn để mở" : `${album.count} tác phẩm`}
           </span>
           <div className="flex items-center justify-between gap-3">
-            <h3 className="[font-family:var(--font-customer-serif),serif] text-2xl font-medium tracking-normal text-[#F7F3E4]">
+            <h3 className="[font-family:var(--font-customer-serif),serif] text-xl sm:text-2xl font-medium tracking-normal text-[#F7F3E4] line-clamp-2">
               {album.name}
             </h3>
             <span className="text-sm text-[#F7F3E4] shrink-0 transform translate-x-0 group-hover:translate-x-1.5 transition-transform">
@@ -88,26 +89,26 @@ function GroupSection({
 }) {
   return (
     <section id={id} className="scroll-mt-28">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between border-b border-[#F7F3E4]/15 pb-4 mb-8 gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between border-b border-[#F7F3E4]/15 pb-3.5 sm:pb-4 mb-6 sm:mb-8 gap-1.5 sm:gap-2">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.22em] text-[#a39e93] mb-1">
+          <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.22em] text-[#a39e93] mb-1">
             {subtitle}
           </p>
-          <h2 className="[font-family:var(--font-customer-serif),serif] text-3xl md:text-4xl font-normal tracking-normal">
+          <h2 className="[font-family:var(--font-customer-serif),serif] text-2xl sm:text-3xl md:text-4xl font-normal tracking-normal">
             {title}
           </h2>
         </div>
-        <span className="text-xs uppercase tracking-widest text-[#a39e93]">
+        <span className="text-[11px] sm:text-xs uppercase tracking-widest text-[#a39e93]">
           {albums.length} Album
         </span>
       </div>
 
       {albums.length === 0 ? (
-        <p className="text-sm text-[#a39e93] py-10">
+        <p className="text-sm text-[#a39e93] py-8 sm:py-10">
           Chưa có album nào trong mục {title}.
         </p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {albums.map((album) => (
             <AlbumCard key={`${album.group}-${album.name}`} album={album} />
           ))}
@@ -135,16 +136,16 @@ export function CustomerPortfolioClient({
 
   return (
     <div className="min-h-screen flex flex-col bg-[#171410] text-[#F7F3E4]">
-      <header className="grid grid-cols-1 md:grid-cols-3 items-center px-[3vw] py-7 border-b border-[#F7F3E4]/10 sticky top-0 bg-[#171410]/95 backdrop-blur-md z-40 gap-3">
+      <header className="grid grid-cols-1 md:grid-cols-3 items-center px-4 sm:px-[3vw] py-4 sm:py-7 border-b border-[#F7F3E4]/10 sticky top-0 bg-[#171410]/95 backdrop-blur-md z-40 gap-2.5 sm:gap-3">
         <div className="hidden md:block [font-family:var(--font-customer-serif),serif] text-base tracking-wide">
           Ni Image
         </div>
 
-        <h1 className="[font-family:var(--font-customer-serif),serif] text-xl md:text-2xl tracking-[0.14em] uppercase text-center">
+        <h1 className="[font-family:var(--font-customer-serif),serif] text-lg sm:text-xl md:text-2xl tracking-[0.14em] uppercase text-center">
           {"NI'S IMAGES"}
         </h1>
 
-        <nav className="flex justify-center md:justify-end gap-5 text-xs uppercase tracking-widest">
+        <nav className="flex justify-center md:justify-end gap-4 sm:gap-5 text-[11px] sm:text-xs uppercase tracking-widest">
           <button
             onClick={() => setActiveTab("ALL")}
             className={`pb-1 border-b transition-colors cursor-pointer ${
@@ -178,13 +179,13 @@ export function CustomerPortfolioClient({
         </nav>
       </header>
 
-      <div className="text-center pt-12 pb-10 px-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-[#a39e93] mb-2">
+      <div className="text-center pt-8 sm:pt-12 pb-6 sm:pb-10 px-4">
+        <p className="text-[11px] sm:text-xs uppercase tracking-[0.2em] text-[#a39e93] mb-2">
           Portfolio Collections
         </p>
       </div>
 
-      <main className="flex-1 max-w-350 w-full mx-auto px-[4vw] pb-24 space-y-20">
+      <main className="flex-1 max-w-350 w-full mx-auto px-4 sm:px-[4vw] pb-16 sm:pb-24 space-y-14 sm:space-y-20">
         {(activeTab === "ALL" || activeTab === "Concept") && (
           <GroupSection
             id="concepts-section"
@@ -204,7 +205,7 @@ export function CustomerPortfolioClient({
         )}
       </main>
 
-      <footer className="flex flex-col sm:flex-row justify-between items-center px-[3vw] py-8 border-t border-[#F7F3E4]/10 text-xs text-[#a39e93] gap-2">
+      <footer className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-[3vw] py-6 sm:py-8 border-t border-[#F7F3E4]/10 text-xs text-[#a39e93] gap-2 text-center">
         <div>{"© 2026 NI'S IMAGES. All rights reserved."}</div>
         <div>Fine Art & Portrait Photography</div>
       </footer>

@@ -126,15 +126,15 @@ export function PublicAlbumClient({
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 py-8 px-4">
-      <div className="mx-auto max-w-2xl space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border bg-background p-5 shadow-xs">
+    <div className="min-h-screen bg-muted/30 py-4 sm:py-8 px-3 sm:px-4">
+      <div className="mx-auto max-w-2xl space-y-4 sm:space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border bg-background p-4 sm:p-5 shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <Camera className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-base font-bold">{album.studio_name}</p>
+              <p className="text-sm sm:text-base font-bold">{album.studio_name}</p>
               {album.studio_phone && (
                 <p className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Phone className="h-3 w-3" />
@@ -149,15 +149,15 @@ export function PublicAlbumClient({
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">{album.title}</CardTitle>
+          <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-4">
+            <CardTitle className="text-lg sm:text-xl">{album.title}</CardTitle>
             <CardDescription>
               {album.client_name ? `Khách hàng: ${album.client_name} • ` : ""}
               {album.due_date ? `Hạn gửi chọn ảnh: ${formatDateVN(album.due_date)}` : "Chọn ảnh retouch"}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <CardContent className="p-4 sm:p-6 pt-2 space-y-4">
+            <div className="flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3.5 sm:p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm">
                 <p className="font-semibold text-foreground">Bước 1: Mở thư mục xem ảnh gốc</p>
                 <p className="text-xs text-muted-foreground">
@@ -168,7 +168,7 @@ export function PublicAlbumClient({
                 href={album.source_ref}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-xs hover:bg-primary/90"
+                className="inline-flex h-10 sm:h-9 w-full sm:w-auto shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-xs hover:bg-primary/90"
               >
                 <ExternalLink className="h-4 w-4" />
                 Mở Google Drive
@@ -198,7 +198,7 @@ export function PublicAlbumClient({
                       value={singleInput}
                       onChange={(e) => setSingleInput(e.target.value)}
                     />
-                    <Button type="submit" variant="secondary">
+                    <Button type="submit" variant="secondary" className="shrink-0">
                       <Plus className="mr-1 h-4 w-4" />
                       Thêm
                     </Button>
@@ -209,14 +209,19 @@ export function PublicAlbumClient({
                   <Label className="text-xs text-muted-foreground">
                     Hoặc dán nhiều mã ảnh cùng lúc (cách nhau bằng dấu phẩy, dấu cách hoặc xuống dòng)
                   </Label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Textarea
                       rows={2}
                       placeholder="VD: IMG_012, IMG_045, IMG_089..."
                       value={bulkInput}
                       onChange={(e) => setBulkInput(e.target.value)}
                     />
-                    <Button type="button" variant="outline" onClick={handleAddBulk}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddBulk}
+                      className="w-full sm:w-auto shrink-0"
+                    >
                       Thêm loạt
                     </Button>
                   </div>
@@ -225,7 +230,7 @@ export function PublicAlbumClient({
             )}
 
             <div className="space-y-2 border-t pt-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-1">
                 <Label>
                   Danh sách ảnh đã chọn ({selected.length}
                   {maxAllowed ? ` / ${maxAllowed}` : ""})
@@ -246,14 +251,14 @@ export function PublicAlbumClient({
                   {selected.map((code) => (
                     <span
                       key={code}
-                      className="inline-flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1 font-mono text-xs font-medium shadow-2xs"
+                      className="inline-flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1.5 font-mono text-xs font-medium shadow-2xs"
                     >
                       {code}
                       {!isLocked && (
                         <button
                           type="button"
                           onClick={() => removeCode(code)}
-                          className="text-muted-foreground hover:text-destructive"
+                          className="text-muted-foreground hover:text-destructive p-0.5"
                           aria-label={`Bỏ chọn ${code}`}
                         >
                           <X className="h-3.5 w-3.5" />
@@ -277,12 +282,13 @@ export function PublicAlbumClient({
             </div>
 
             {!isLocked && (
-              <div className="flex flex-wrap justify-end gap-3 border-t pt-4">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 border-t pt-4">
                 <Button
                   type="button"
                   variant="outline"
                   disabled={isPending}
                   onClick={() => handleSaveOrSubmit(false)}
+                  className="w-full sm:w-auto"
                 >
                   <Save className="mr-1.5 h-4 w-4" />
                   Lưu nháp
@@ -291,6 +297,7 @@ export function PublicAlbumClient({
                   type="button"
                   disabled={isPending}
                   onClick={() => handleSaveOrSubmit(true)}
+                  className="w-full sm:w-auto"
                 >
                   <Send className="mr-1.5 h-4 w-4" />
                   Gửi & Chốt danh sách ảnh

@@ -1,7 +1,7 @@
-﻿/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { PortfolioPhoto } from "@/features/portfolio/types";
 
@@ -15,6 +15,7 @@ export function AlbumDetailClient({
   albumPhotos: PortfolioPhoto[];
 }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -51,11 +52,11 @@ export function AlbumDetailClient({
 
   return (
     <div className="min-h-screen flex flex-col bg-[#171410] text-[#F7F3E4]">
-      <header className="grid grid-cols-3 items-center px-[3vw] py-7 border-b border-[#F7F3E4]/10 sticky top-0 bg-[#171410]/95 backdrop-blur-md z-40">
+      <header className="grid grid-cols-3 items-center px-3.5 sm:px-[3vw] py-4 sm:py-7 border-b border-[#F7F3E4]/10 sticky top-0 bg-[#171410]/95 backdrop-blur-md z-40">
         <div>
           <Link
             href="/customer"
-            className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-[#a39e93] hover:text-[#F7F3E4] transition-colors"
+            className="inline-flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs uppercase tracking-widest text-[#a39e93] hover:text-[#F7F3E4] transition-colors"
           >
             <span>←</span>
             <span>Quay lại</span>
@@ -64,30 +65,30 @@ export function AlbumDetailClient({
 
         <Link
           href="/customer"
-          className="[font-family:var(--font-customer-serif),serif] text-lg md:text-2xl tracking-[0.14em] uppercase text-center truncate"
+          className="[font-family:var(--font-customer-serif),serif] text-sm sm:text-lg md:text-2xl tracking-[0.1em] sm:tracking-[0.14em] uppercase text-center truncate"
         >
           {"NI'S IMAGES"}
         </Link>
 
-        <div className="flex justify-end text-xs tracking-widest uppercase text-[#a39e93]">
+        <div className="flex justify-end text-[11px] sm:text-xs tracking-widest uppercase text-[#a39e93]">
           {albumPhotos.length} ảnh
         </div>
       </header>
 
-      <section className="text-center pt-12 pb-10 px-4">
-        <div className="flex items-center justify-center gap-2 text-[11px] uppercase tracking-[0.2em] text-[#a39e93] mb-2">
+      <section className="text-center pt-8 sm:pt-12 pb-6 sm:pb-10 px-4">
+        <div className="flex items-center justify-center gap-2 text-[10px] sm:text-[11px] uppercase tracking-[0.2em] text-[#a39e93] mb-2">
           <Link href="/customer" className="hover:text-[#F7F3E4]">
             Portfolio
           </Link>
           <span>/</span>
           <span className="text-[#F7F3E4]">{displayGroup}</span>
         </div>
-        <h1 className="[font-family:var(--font-customer-serif),serif] text-3xl md:text-5xl font-normal tracking-normal">
+        <h1 className="[font-family:var(--font-customer-serif),serif] text-2xl sm:text-3xl md:text-5xl font-normal tracking-normal px-2">
           {albumName}
         </h1>
       </section>
 
-      <main className="flex-1 max-w-[1700px] w-full mx-auto px-[2.38vw] pb-20">
+      <main className="flex-1 max-w-[1700px] w-full mx-auto px-2 sm:px-[2.38vw] pb-16 sm:pb-20">
         {albumPhotos.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-[#a39e93] mb-6">
@@ -110,18 +111,15 @@ export function AlbumDetailClient({
               >
                 <img
                   src={photo.image_url}
-                  alt={photo.title}
+                  alt={`${albumName} - ${index + 1}`}
                   loading="lazy"
                   className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#171410]/85 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
-                  <span className="text-[11px] uppercase tracking-[0.15em] text-[#a39e93]">
+                <div className="absolute inset-0 bg-gradient-to-t from-[#171410]/80 via-transparent to-transparent opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 sm:p-6">
+                  <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.15em] text-[#a39e93]">
                     {String(index + 1).padStart(2, "0")} /{" "}
                     {String(albumPhotos.length).padStart(2, "0")}
                   </span>
-                  <h3 className="[font-family:var(--font-customer-serif),serif] text-xl mt-0.5">
-                    {photo.title}
-                  </h3>
                 </div>
               </div>
             ))}
@@ -130,40 +128,66 @@ export function AlbumDetailClient({
       </main>
 
       {lightboxIndex !== null && albumPhotos[lightboxIndex] && (
-        <div className="fixed inset-0 bg-[#0f0d0a]/95 z-50 flex items-center justify-center p-6">
+        <div
+          onClick={() => setLightboxIndex(null)}
+          onTouchStart={(e) => {
+            touchStartXRef.current = e.touches[0]?.clientX ?? null;
+          }}
+          onTouchEnd={(e) => {
+            if (touchStartXRef.current === null) return;
+            const endX = e.changedTouches[0]?.clientX ?? touchStartXRef.current;
+            const diff = touchStartXRef.current - endX;
+            touchStartXRef.current = null;
+            if (Math.abs(diff) > 45) {
+              if (diff > 0) handleNext();
+              else handlePrev();
+            }
+          }}
+          className="fixed inset-0 bg-[#0f0d0a]/95 z-50 flex items-center justify-center p-3 sm:p-6 select-none"
+        >
           <button
             onClick={() => setLightboxIndex(null)}
-            className="absolute top-6 right-8 text-4xl text-[#F7F3E4]/70 hover:text-[#F7F3E4] cursor-pointer"
+            aria-label="Đóng"
+            className="absolute top-3 right-4 sm:top-6 sm:right-8 z-10 text-3xl sm:text-4xl text-[#F7F3E4]/75 hover:text-[#F7F3E4] p-2 cursor-pointer"
           >
             ×
           </button>
           <button
-            onClick={handlePrev}
-            className="absolute left-4 md:left-8 text-3xl text-[#F7F3E4]/70 hover:text-[#F7F3E4] p-4 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              handlePrev();
+            }}
+            aria-label="Ảnh trước"
+            className="absolute left-1 sm:left-4 md:left-8 z-10 text-2xl sm:text-3xl text-[#F7F3E4]/75 hover:text-[#F7F3E4] p-3 sm:p-4 cursor-pointer"
           >
             ❮
           </button>
           <img
+            onClick={(e) => e.stopPropagation()}
             src={albumPhotos[lightboxIndex].image_url}
-            alt={albumPhotos[lightboxIndex].title}
-            className="max-w-[90vw] max-h-[82vh] object-contain shadow-2xl"
+            alt={`${albumName} - ${lightboxIndex + 1}`}
+            className="max-w-[88vw] sm:max-w-[90vw] max-h-[76dvh] sm:max-h-[82vh] object-contain shadow-2xl"
           />
           <button
-            onClick={handleNext}
-            className="absolute right-4 md:right-8 text-3xl text-[#F7F3E4]/70 hover:text-[#F7F3E4] p-4 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleNext();
+            }}
+            aria-label="Ảnh tiếp theo"
+            className="absolute right-1 sm:right-4 md:right-8 z-10 text-2xl sm:text-3xl text-[#F7F3E4]/75 hover:text-[#F7F3E4] p-3 sm:p-4 cursor-pointer"
           >
             ❯
           </button>
-          <div className="absolute bottom-6 [font-family:var(--font-customer-serif),serif] text-lg tracking-wide">
-            {albumPhotos[lightboxIndex].title}{" "}
-            <span className="text-sm text-[#a39e93] ml-2">
+          <div className="absolute bottom-4 sm:bottom-6 [font-family:var(--font-customer-serif),serif] text-sm sm:text-lg tracking-wide text-center px-4">
+            {albumName}{" "}
+            <span className="text-xs sm:text-sm text-[#a39e93] ml-1.5">
               ({lightboxIndex + 1} / {albumPhotos.length})
             </span>
           </div>
         </div>
       )}
 
-      <footer className="flex flex-col sm:flex-row justify-between items-center px-[3vw] py-8 border-t border-[#F7F3E4]/10 text-xs text-[#a39e93] gap-2">
+      <footer className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-[3vw] py-6 sm:py-8 border-t border-[#F7F3E4]/10 text-xs text-[#a39e93] gap-2 text-center">
         <div>{"© 2026 NI'S IMAGES. All rights reserved."}</div>
         <div>Fine Art & Portrait Photography</div>
       </footer>
