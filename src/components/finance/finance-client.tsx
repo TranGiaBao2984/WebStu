@@ -126,7 +126,7 @@ export function FinanceClient({
               <TrendingUp className="h-4 w-4 text-primary" />
             </div>
             <p className="mt-2 text-xl font-bold">{formatVND(r.delivered_sales)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
               Giá trị ký mới: {formatVND(r.signed_revenue)}
             </p>
           </CardContent>
@@ -139,7 +139,7 @@ export function FinanceClient({
               <ArrowDownLeft className="h-4 w-4 text-emerald-600" />
             </div>
             <p className="mt-2 text-xl font-bold text-emerald-700">{formatVND(r.cash_in)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
               Cọc: {formatVND(r.deposit_in)} • Tất toán: {formatVND(r.balance_in)}
             </p>
           </CardContent>
@@ -152,7 +152,7 @@ export function FinanceClient({
               <ArrowUpRight className="h-4 w-4 text-destructive" />
             </div>
             <p className="mt-2 text-xl font-bold text-destructive">{formatVND(r.cash_out)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
               Hoàn khách: {formatVND(r.refund_out)}
             </p>
           </CardContent>
@@ -164,10 +164,10 @@ export function FinanceClient({
               <span>Lợi nhuận ròng</span>
               <AlertCircle className="h-4 w-4 text-primary" />
             </div>
-            <p className="mt-2 text-xl font-bold text-primary">
+            <p className="mt-2 text-xl font-bold text-amber-700">
               {formatVND(r.net_profit ?? 0)}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
               Khách còn nợ: {formatVND(r.customer_debt)}
             </p>
           </CardContent>
@@ -181,7 +181,7 @@ export function FinanceClient({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-          <div className="space-y-2 rounded-lg border p-3.5">
+          <div className="space-y-2 rounded-lg p-3.5 bg-muted/40">
             <p className="font-semibold text-emerald-700">Dòng tiền vào & Công nợ</p>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Tiền cọc thu trong tháng</span>
@@ -201,7 +201,7 @@ export function FinanceClient({
             </div>
           </div>
 
-          <div className="space-y-2 rounded-lg border p-3.5">
+          <div className="space-y-2 rounded-lg p-3.5 bg-muted/40">
             <p className="font-semibold text-destructive">Chi phí & Lợi nhuận</p>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Chi phí trực tiếp theo lịch</span>
@@ -327,7 +327,7 @@ export function FinanceClient({
           {expenses.length === 0 ? (
             <p className="text-sm text-muted-foreground">Chưa có khoản chi phí nào được ghi nhận.</p>
           ) : (
-            <div className="divide-y rounded-lg border">
+            <div className="divide-y rounded-lg bg-muted/40">
               {expenses.map((ex) => (
                 <div
                   key={ex.id}

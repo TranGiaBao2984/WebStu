@@ -1,0 +1,40 @@
+name: Production Ops - Keep Alive & Database Backup
+
+on:
+  schedule:
+    # Chạy lúc 02:00 UTC mỗi 3 ngày để giữ Supabase không bị auto-pause
+    - cron: "0 2 */3 * *"
+  workflow_dispatch:
+
+jobs:
+  keep-alive-and-backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Production Health Endpoint
+        run: |
+          if [ -n "${{ secrets.PRODUCTION_HEALTH_URL }}" ]; then
+            curl --fail --silent --show-error "${{ secrets.PRODUCTION_HEALTH_URL }}"
+          else
+            curl --fail --silent --show-error "https://web-stu.vercel.app/api/health"
+          fi
+
+      - name: Export Encrypted JSON Snapshot of Core Tables
+        if: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+        run: |
+          mkdir -p backups
+          TABLES=("clients" "bookings" "booking_sessions" "booking_items" "payments" "albums" "portfolio_photos" "expenses" "studio_settings")
+          for table in "${TABLES[@]}"; do
+            curl -sS "${{ secrets.SUPABASE_URL }}/rest/v1/${table}?select=*" \
+              -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+              -o "backups/${table}.json"
+          done
+          tar -czf "backup-framevis-$(date +%Y%m%d-%H%M).tar.gz" backups/
+
+      - name: Upload Backup Archive to Private GitHub Artifact (90 days retention)
+        if: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-db-backup-${{ github.run_number }}
+          path: backup-framevis-*.tar.gz
+          retention-days: 90

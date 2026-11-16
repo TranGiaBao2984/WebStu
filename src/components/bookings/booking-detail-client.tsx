@@ -316,7 +316,7 @@ export function BookingDetailClient({
           {payments.length === 0 ? (
             <p className="text-sm text-muted-foreground">{vi.bookings.detail.noPayments}</p>
           ) : (
-            <div className="divide-y rounded-lg border">
+            <div className="divide-y rounded-lg bg-muted/40">
               {payments.map((p) => (
                 <div key={p.id} className="flex items-center justify-between gap-2 p-3 text-sm">
                   <div>
@@ -397,7 +397,7 @@ export function BookingDetailClient({
           {sessions.length === 0 ? (
             <p className="text-sm text-muted-foreground">{vi.bookings.detail.noSessions}</p>
           ) : (
-            <div className="divide-y rounded-lg border">
+            <div className="divide-y rounded-lg bg-muted/40">
               {sessions.map((s) => (
                 <div key={s.id} className="flex items-center justify-between gap-2 p-3 text-sm">
                   <div className="space-y-0.5">
@@ -504,7 +504,7 @@ export function BookingDetailClient({
           </form>
 
           {items.length > 0 && (
-            <div className="divide-y rounded-lg border">
+            <div className="divide-y rounded-lg bg-muted/40">
               {items.map((it) => (
                 <div key={it.id} className="flex items-center justify-between gap-2 p-3 text-sm">
                   <div>

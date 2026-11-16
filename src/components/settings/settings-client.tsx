@@ -214,11 +214,11 @@ export function SettingsClient({
           )}
 
           {initialPackages.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-lg border-dashed p-8 text-center text-sm text-muted-foreground bg-muted/40">
               {vi.settings.packageEmpty}
             </div>
           ) : (
-            <div className="divide-y rounded-lg border">
+            <div className="divide-y rounded-lg bg-muted/40">
               {initialPackages.map((pkg) => (
                 <div
                   key={pkg.id}

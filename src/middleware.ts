@@ -1,4 +1,4 @@
-﻿import { createServerClient } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
@@ -37,7 +37,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/album/") ||
     pathname === "/customer" ||
-    pathname.startsWith("/customer/");
+    pathname.startsWith("/customer/") ||
+    pathname === "/privacy" ||
+    pathname === "/api/health";
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();

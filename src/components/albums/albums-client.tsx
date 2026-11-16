@@ -199,7 +199,7 @@ export function AlbumsClient({
                 </div>
 
                 {showBookingDropdown && (
-                  <div className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-background p-1 shadow-lg">
+                  <div className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-lg bg-background p-1 shadow-lg">
                     <button
                       type="button"
                       onMouseDown={() => {
@@ -226,11 +226,11 @@ export function AlbumsClient({
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-semibold text-foreground">{b.clientName}</span>
-                            <span className="font-mono text-[11px] text-primary">
+                            <span className="font-mono text-xs text-primary">
                               {b.shortCode}
                             </span>
                           </div>
-                          <span className="text-[11px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {b.title}
                             {b.clientPhone ? ` • ${b.clientPhone}` : ""}
                           </span>

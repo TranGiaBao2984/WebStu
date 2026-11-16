@@ -1,3 +1,5 @@
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
@@ -18,6 +20,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="vi">
       <body className={`${beVietnamPro.className} min-h-screen bg-background text-foreground antialiased`}>
         {children}
+              <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

@@ -103,7 +103,7 @@ export default async function DashboardPage() {
                 <TrendingUp className="h-4 w-4 text-primary" />
               </div>
               <p className="mt-2 text-xl font-bold">{formatVND(report.delivered_sales)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
                 Lợi nhuận ròng: {formatVND(report.net_profit ?? 0)}
               </p>
             </CardContent>
@@ -120,7 +120,7 @@ export default async function DashboardPage() {
               <p className="mt-2 text-xl font-bold text-emerald-700">
                 {formatVND(report.cash_in)}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
                 Tiền cọc & tất toán đã nhận
               </p>
             </CardContent>
@@ -134,10 +134,10 @@ export default async function DashboardPage() {
                 <span>Tổng khách còn nợ</span>
                 <Wallet className="h-4 w-4 text-amber-600" />
               </div>
-              <p className="mt-2 text-xl font-bold text-primary">
+              <p className="mt-2 text-xl font-bold text-amber-700">
                 {formatVND(report.customer_debt)}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
                 Trên các lịch chưa hủy
               </p>
             </CardContent>
@@ -152,7 +152,7 @@ export default async function DashboardPage() {
                 <Images className="h-4 w-4 text-primary" />
               </div>
               <p className="mt-2 text-xl font-bold">{albumsWaitingAction.length} album</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
                 Khách đã chốt ảnh hoặc đang retouch
               </p>
             </CardContent>
@@ -186,7 +186,7 @@ export default async function DashboardPage() {
                     <div className="flex items-center justify-between text-xs font-semibold text-primary">
                       <span className="flex items-center gap-1.5">
                         {isToday && (
-                          <Badge className="px-1.5 py-0 text-[10px]">Hôm nay</Badge>
+                          <Badge className="px-1.5 py-0 text-xs">Hôm nay</Badge>
                         )}
                         {formatDateVN(s.startIso)} • {formatTimeVN(s.startIso)} –{" "}
                         {formatTimeVN(s.endIso)}
@@ -196,7 +196,7 @@ export default async function DashboardPage() {
                     <p className="mt-1.5 font-semibold">{s.bookingTitle}</p>
                     <p className="text-xs text-muted-foreground">{s.clientName}</p>
                     {s.location && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
                         <MapPin className="h-3 w-3 shrink-0" />
                         <span className="truncate">{s.location}</span>
                       </p>
@@ -233,14 +233,14 @@ export default async function DashboardPage() {
                       href={`/bookings/${b.id}`}
                       className="block rounded-lg border bg-background p-2.5 text-xs transition-all hover:border-primary/50 hover:shadow-xs"
                     >
-                      <div className="flex items-center justify-between font-mono text-[11px] text-primary">
+                      <div className="flex items-center justify-between font-mono text-xs text-primary">
                         <span>{b.shortCode}</span>
                         <span>{b.paidPercent}%</span>
                       </div>
                       <p className="mt-1 line-clamp-1 font-semibold text-foreground">{b.title}</p>
                       <p className="text-muted-foreground">{b.clientName}</p>
                       {col.key === "postProduction" && (
-                        <Badge variant="outline" className="mt-1.5 text-[10px]">
+                        <Badge variant="outline" className="mt-1.5 text-xs">
                           {vi.bookings.statuses[b.status]}
                         </Badge>
                       )}

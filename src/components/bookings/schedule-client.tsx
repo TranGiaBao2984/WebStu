@@ -135,7 +135,7 @@ export function ScheduleClient({ sessions }: { sessions: ScheduleSessionItem[] }
                           <p className="mt-0.5 line-clamp-1 font-semibold">{s.bookingTitle}</p>
                           <p className="text-muted-foreground">{s.clientName}</p>
                           {s.location && (
-                            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                               <MapPin className="h-3 w-3 shrink-0" />
                               <span className="truncate">{s.location}</span>
                             </p>
@@ -184,7 +184,7 @@ export function ScheduleClient({ sessions }: { sessions: ScheduleSessionItem[] }
                         <Link
                           key={s.id}
                           href={`/bookings/${s.bookingId}`}
-                          className="block truncate rounded bg-primary px-1.5 py-0.5 text-[11px] font-medium text-primary-foreground hover:opacity-90"
+                          className="block truncate rounded bg-primary px-1.5 py-0.5 text-xs font-medium text-primary-foreground hover:opacity-90"
                           title={`${formatTimeVN(s.startIso)} ${s.bookingTitle} - ${s.clientName}`}
                         >
                           {formatTimeVN(s.startIso)} {s.clientName}
