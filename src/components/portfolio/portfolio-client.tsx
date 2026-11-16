@@ -562,7 +562,7 @@ export function PortfolioClient({
       {/* Thanh chọn Nhóm danh mục chính */}
       <div className="flex flex-wrap items-center gap-2">
         {GROUP_OPTIONS.map((grp) => {
-          const count = photos.filter((p) => p.group_name === grp).length;
+          const count = new Set(photos.filter((p) => p.group_name === grp).map((p) => p.album_name)).size;
           const active = grp === selectedGroup;
           return (
             <button
