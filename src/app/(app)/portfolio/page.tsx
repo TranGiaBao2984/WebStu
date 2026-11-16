@@ -9,6 +9,7 @@ export default async function PortfolioManagerPage() {
   try {
     photos = await listPortfolioPhotos();
   } catch (err) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     dbError =
       err instanceof Error
         ? err.message

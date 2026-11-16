@@ -1,6 +1,7 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -14,7 +15,6 @@ import {
   ImagePlus,
   Loader2,
   Pencil,
-  Search,
   Sparkles,
   Trash2,
   Upload,
@@ -43,13 +43,6 @@ function slugifyAlbum(name: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-}
-
-function titleFromFilename(filename: string): string {
-  const withoutExt = filename.replace(/\.[^/.]+$/, "");
-  const cleaned = withoutExt.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
-  if (!cleaned) return "Tác phẩm mới";
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
 async function compressImageIfNeeded(file: File): Promise<File> {
@@ -120,10 +113,19 @@ export function PortfolioClient({
   initialPhotos: PortfolioPhoto[];
 }) {
   const router = useRouter();
-  const [photos, setPhotos] = useState<PortfolioPhoto[]>(initialPhotos);
+  const [optimisticOrder, setOptimisticOrder] = useState<Record<string, number>>({});
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+
+  const photos = useMemo(() => {
+    return initialPhotos
+      .filter((p) => !hiddenIds.has(p.id))
+      .map((p) =>
+        p.id in optimisticOrder ? { ...p, sort_order: optimisticOrder[p.id] } : p
+      );
+  }, [initialPhotos, optimisticOrder, hiddenIds]);
+
   const [selectedGroup, setSelectedGroup] = useState<MainGroup>(GROUP_OPTIONS[0]);
   const [selectedAlbum, setSelectedAlbum] = useState<string>("");
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Trạng thái kéo thả sắp xếp vị trí ảnh
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -143,13 +145,8 @@ export function PortfolioClient({
   const [newAlbumInput, setNewAlbumInput] = useState("");
   const [isCreatingAlbumMode, setIsCreatingAlbumMode] = useState(false);
 
-  // Trạng thái sửa nhanh tiêu đề tại chỗ
-  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
-  const [inlineTitleValue, setInlineTitleValue] = useState("");
-
   // Modal chỉnh sửa chi tiết ảnh
   const [editingPhoto, setEditingPhoto] = useState<PortfolioPhoto | null>(null);
-  const [editTitle, setEditTitle] = useState("");
   const [editGroup, setEditGroup] = useState<MainGroup>(GROUP_OPTIONS[0]);
   const [editAlbum, setEditAlbum] = useState("");
   const [editUrl, setEditUrl] = useState("");
@@ -159,10 +156,6 @@ export function PortfolioClient({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    setPhotos(initialPhotos);
-  }, [initialPhotos]);
 
   const albumsInGroup = useMemo(() => {
     const map = new Map<
@@ -192,56 +185,46 @@ export function PortfolioClient({
     return Array.from(map.values());
   }, [photos, selectedGroup]);
 
-  useEffect(() => {
-    if (isCreatingAlbumMode) return;
-    if (albumsInGroup.length === 0) {
-      setSelectedAlbum("");
-      return;
-    }
-    const stillExists = albumsInGroup.some((a) => a.name === selectedAlbum);
-    if (!stillExists) {
-      setSelectedAlbum(albumsInGroup[0].name);
-    }
+  // Tính toán Album đang được chọn tự động mà không cần useEffect
+  const resolvedSelectedAlbum = useMemo(() => {
+    if (isCreatingAlbumMode) return "";
+    if (albumsInGroup.length === 0) return "";
+    const exists = albumsInGroup.some((a) => a.name === selectedAlbum);
+    return exists ? selectedAlbum : albumsInGroup[0].name;
   }, [albumsInGroup, selectedAlbum, isCreatingAlbumMode]);
 
-  const activeAlbumPhotos = useMemo(() => {
-    const activeName = isCreatingAlbumMode ? newAlbumInput.trim() : selectedAlbum;
-    if (!activeName) return [];
-
-    return photos
-      .filter(
-        (p) =>
-          p.group_name === selectedGroup &&
-          p.album_name === activeName &&
-          (!searchQuery.trim() ||
-            p.title.toLowerCase().includes(searchQuery.trim().toLowerCase()))
-      )
-      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  }, [
-    photos,
-    selectedGroup,
-    selectedAlbum,
-    newAlbumInput,
-    isCreatingAlbumMode,
-    searchQuery,
-  ]);
+  const existingAlbumsForEditGroup = useMemo(() => {
+    const names = new Set<string>();
+    for (const p of photos) {
+      if (p.group_name === editGroup) {
+        names.add(p.album_name);
+      }
+    }
+    return Array.from(names);
+  }, [photos, editGroup]);
 
   const activeAlbumName = isCreatingAlbumMode
     ? newAlbumInput.trim()
-    : selectedAlbum;
+    : resolvedSelectedAlbum;
+
+  const activeAlbumPhotos = useMemo(() => {
+    if (!activeAlbumName) return [];
+    return photos
+      .filter(
+        (p) => p.group_name === selectedGroup && p.album_name === activeAlbumName
+      )
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }, [photos, selectedGroup, activeAlbumName]);
 
   const persistNewOrder = (reorderedAlbumList: PortfolioPhoto[]) => {
-    const orderMap = new Map<string, number>();
-    reorderedAlbumList.forEach((item, idx) => orderMap.set(item.id, idx));
+    const nextOrderMap: Record<string, number> = {};
+    reorderedAlbumList.forEach((item, idx) => {
+      nextOrderMap[item.id] = idx;
+    });
 
-    const previousSnapshot = photos;
-    setPhotos((prev) =>
-      prev.map((p) =>
-        orderMap.has(p.id) ? { ...p, sort_order: orderMap.get(p.id)! } : p
-      )
-    );
-
+    setOptimisticOrder((prev) => ({ ...prev, ...nextOrderMap }));
     setOrderStatus("saving");
+
     startTransition(async () => {
       try {
         await reorderPortfolioPhotosAction(reorderedAlbumList.map((p) => p.id));
@@ -249,7 +232,7 @@ export function PortfolioClient({
         setTimeout(() => setOrderStatus("idle"), 2000);
         router.refresh();
       } catch (err) {
-        setPhotos(previousSnapshot);
+        setOptimisticOrder({});
         setOrderStatus("idle");
         alert(err instanceof Error ? err.message : "Lỗi lưu thứ tự ảnh.");
       }
@@ -258,7 +241,6 @@ export function PortfolioClient({
 
   const handleMoveIndex = (fromIndex: number, toIndex: number) => {
     if (
-      searchQuery.trim() ||
       fromIndex === toIndex ||
       toIndex < 0 ||
       toIndex >= activeAlbumPhotos.length
@@ -273,7 +255,7 @@ export function PortfolioClient({
   };
 
   const handleDropOnCard = (targetId: string) => {
-    if (!draggedId || draggedId === targetId || searchQuery.trim()) {
+    if (!draggedId || draggedId === targetId) {
       setDraggedId(null);
       setDragOverId(null);
       return;
@@ -321,7 +303,6 @@ export function PortfolioClient({
         await savePortfolioPhotoAction({
           group_name: selectedGroup,
           album_name: targetAlbum,
-          title: titleFromFilename(rawFile.name),
           image_url: url,
         });
       } catch (err) {
@@ -339,42 +320,22 @@ export function PortfolioClient({
     router.refresh();
   };
 
-  const commitInlineTitle = (photo: PortfolioPhoto) => {
-    const trimmed = inlineTitleValue.trim();
-    setInlineEditId(null);
-    if (!trimmed || trimmed === photo.title) return;
-
-    setPhotos((prev) =>
-      prev.map((p) => (p.id === photo.id ? { ...p, title: trimmed } : p))
-    );
-
-    startTransition(async () => {
-      try {
-        await savePortfolioPhotoAction({
-          id: photo.id,
-          group_name: photo.group_name,
-          album_name: photo.album_name,
-          title: trimmed,
-          image_url: photo.image_url,
-        });
-        router.refresh();
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "Không thể cập nhật tiêu đề.");
-        router.refresh();
-      }
-    });
-  };
-
   const handleRenameAlbum = () => {
-    if (!selectedAlbum) return;
-    const nextName = prompt("Nhập tên mới cho Album:", selectedAlbum);
-    if (!nextName || !nextName.trim() || nextName.trim() === selectedAlbum) return;
+    if (!resolvedSelectedAlbum) return;
+    const nextName = prompt("Nhập tên mới cho Album:", resolvedSelectedAlbum);
+    if (
+      !nextName ||
+      !nextName.trim() ||
+      nextName.trim() === resolvedSelectedAlbum
+    ) {
+      return;
+    }
 
     startTransition(async () => {
       try {
         await renamePortfolioAlbumAction(
           selectedGroup,
-          selectedAlbum,
+          resolvedSelectedAlbum,
           nextName.trim()
         );
         setSelectedAlbum(nextName.trim());
@@ -386,15 +347,15 @@ export function PortfolioClient({
   };
 
   const handleDeleteAlbum = () => {
-    if (!selectedAlbum) return;
+    if (!resolvedSelectedAlbum) return;
     const ok = confirm(
-      `Xóa toàn bộ Album "${selectedAlbum}" cùng tất cả ảnh bên trong? Thao tác này không thể hoàn tác.`
+      `Xóa toàn bộ Album "${resolvedSelectedAlbum}" cùng tất cả ảnh bên trong? Thao tác này không thể hoàn tác.`
     );
     if (!ok) return;
 
     startTransition(async () => {
       try {
-        await deletePortfolioAlbumAction(selectedGroup, selectedAlbum);
+        await deletePortfolioAlbumAction(selectedGroup, resolvedSelectedAlbum);
         setSelectedAlbum("");
         router.refresh();
       } catch (err) {
@@ -403,25 +364,28 @@ export function PortfolioClient({
     });
   };
 
-  const handleDeletePhoto = (photo: PortfolioPhoto) => {
-    const ok = confirm(`Xóa tác phẩm "${photo.title}" khỏi Portfolio?`);
+  const handleDeletePhoto = (photo: PortfolioPhoto, index: number) => {
+    const ok = confirm(`Xóa ảnh #${index + 1} khỏi Album "${photo.album_name}"?`);
     if (!ok) return;
 
-    setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    setHiddenIds((prev) => new Set(prev).add(photo.id));
     startTransition(async () => {
       try {
         await deletePortfolioPhotoAction(photo.id);
         router.refresh();
       } catch (err) {
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(photo.id);
+          return next;
+        });
         alert(err instanceof Error ? err.message : "Không thể xóa ảnh.");
-        router.refresh();
       }
     });
   };
 
   const openEditModal = (photo: PortfolioPhoto) => {
     setEditingPhoto(photo);
-    setEditTitle(photo.title);
     setEditGroup(photo.group_name);
     setEditAlbum(photo.album_name);
     setEditUrl(photo.image_url);
@@ -452,7 +416,6 @@ export function PortfolioClient({
           id: editingPhoto.id,
           group_name: editGroup,
           album_name: editAlbum,
-          title: editTitle,
           image_url: editUrl,
         });
         setEditingPhoto(null);
@@ -462,8 +425,6 @@ export function PortfolioClient({
       }
     });
   };
-
-  const isReorderDisabled = Boolean(searchQuery.trim());
 
   return (
     <div className="space-y-6">
@@ -512,7 +473,6 @@ export function PortfolioClient({
               onClick={() => {
                 setSelectedGroup(grp);
                 setIsCreatingAlbumMode(false);
-                setSearchQuery("");
               }}
               className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-all cursor-pointer ${
                 active
@@ -544,7 +504,8 @@ export function PortfolioClient({
             </span>
 
             {albumsInGroup.map((alb) => {
-              const isSelected = !isCreatingAlbumMode && alb.name === selectedAlbum;
+              const isSelected =
+                !isCreatingAlbumMode && alb.name === resolvedSelectedAlbum;
               return (
                 <button
                   key={alb.name}
@@ -583,10 +544,10 @@ export function PortfolioClient({
             </button>
           </div>
 
-          {!isCreatingAlbumMode && selectedAlbum && (
+          {!isCreatingAlbumMode && resolvedSelectedAlbum && (
             <div className="flex flex-wrap items-center gap-2">
               <Link
-                href={`/customer/${slugifyAlbum(selectedAlbum)}`}
+                href={`/customer/${slugifyAlbum(resolvedSelectedAlbum)}`}
                 target="_blank"
                 className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-muted/60 px-3 text-xs font-medium hover:bg-muted"
               >
@@ -705,33 +666,25 @@ export function PortfolioClient({
         </div>
       </div>
 
-      {/* Thanh công cụ danh sách ảnh */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      {/* Thanh hướng dẫn sắp xếp */}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
           <GripVertical className="h-4 w-4 text-primary shrink-0" />
           <span>
-            {isReorderDisabled
-              ? "Xóa từ khóa tìm kiếm để bật lại tính năng kéo thả sắp xếp vị trí."
-              : "Kéo thả thẻ ảnh để đổi vị trí hiển thị. Ảnh #1 tự động làm ảnh bìa Album."}
+            Kéo thả thẻ ảnh để đổi vị trí hiển thị. Ảnh <strong>#1</strong> tự động làm ảnh bìa Album.
           </span>
         </div>
-
-        <div className="relative w-full sm:w-64">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm theo tên tác phẩm..."
-            className="h-9 w-full rounded-xl border bg-card pl-9 pr-3 text-xs focus:border-primary focus:outline-none"
-          />
-        </div>
+        {activeAlbumPhotos.length > 0 && (
+          <span className="font-medium text-foreground">
+            Tổng cộng: {activeAlbumPhotos.length} ảnh
+          </span>
+        )}
       </div>
 
       {/* Lưới ảnh có thể kéo thả thay đổi vị trí */}
       {activeAlbumPhotos.length === 0 ? (
         <div className="rounded-2xl border bg-card p-12 text-center space-y-2">
-          <p className="text-sm font-medium">Chưa có tác phẩm nào trong mục này</p>
+          <p className="text-sm font-medium">Chưa có ảnh nào trong mục này</p>
           <p className="text-xs text-muted-foreground">
             Hãy kéo thả hoặc chọn ảnh ở khung phía trên để bắt đầu xây dựng Album.
           </p>
@@ -739,20 +692,19 @@ export function PortfolioClient({
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {activeAlbumPhotos.map((photo, index) => {
-            const isCover = index === 0 && !isReorderDisabled;
+            const isCover = index === 0;
             const isBeingDragged = draggedId === photo.id;
             const isDropTarget = dragOverId === photo.id && draggedId !== photo.id;
 
             return (
               <div
                 key={photo.id}
-                draggable={!isReorderDisabled}
+                draggable
                 onDragStart={(e) => {
                   setDraggedId(photo.id);
                   e.dataTransfer.effectAllowed = "move";
                 }}
                 onDragOver={(e) => {
-                  if (isReorderDisabled) return;
                   e.preventDefault();
                   if (dragOverId !== photo.id) setDragOverId(photo.id);
                 }}
@@ -767,18 +719,18 @@ export function PortfolioClient({
                   setDraggedId(null);
                   setDragOverId(null);
                 }}
-                className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-card transition-all ${
+                className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-card transition-all cursor-grab active:cursor-grabbing ${
                   isBeingDragged ? "opacity-45 scale-[0.98]" : ""
                 } ${
                   isDropTarget
                     ? "ring-2 ring-primary border-primary scale-[1.01]"
                     : "hover:border-foreground/25"
-                } ${!isReorderDisabled ? "cursor-grab active:cursor-grabbing" : ""}`}
+                }`}
               >
-                <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
+                <div className="relative aspect-4/5 w-full overflow-hidden bg-muted">
                   <img
                     src={photo.image_url}
-                    alt={photo.title}
+                    alt={`${photo.album_name} - Ảnh ${index + 1}`}
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-103 select-none"
                     draggable={false}
                   />
@@ -791,7 +743,7 @@ export function PortfolioClient({
                           : "bg-black/65 text-white"
                       }`}
                     >
-                      {!isReorderDisabled && <GripVertical className="h-3 w-3" />}
+                      <GripVertical className="h-3 w-3" />
                       {isCover ? "#1 Ảnh bìa" : `#${index + 1}`}
                     </span>
                   </div>
@@ -805,90 +757,67 @@ export function PortfolioClient({
                     <ZoomIn className="h-4 w-4" />
                   </button>
 
-                  {!isReorderDisabled && (
-                    <div className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-1 rounded-xl bg-black/75 p-1.5 text-white backdrop-blur-md opacity-95 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        disabled={index === 0 || isPending}
-                        onClick={() => handleMoveIndex(index, index - 1)}
-                        title="Di chuyển lên trước"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/20 disabled:opacity-35 cursor-pointer"
-                      >
-                        <ArrowLeft className="h-3.5 w-3.5" />
-                      </button>
-
-                      {index > 0 ? (
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => handleMoveIndex(index, 0)}
-                          title="Đưa lên đầu làm ảnh bìa"
-                          className="inline-flex h-7 items-center gap-1 rounded-lg bg-white/15 px-2 text-xs font-medium hover:bg-white/25 cursor-pointer"
-                        >
-                          <ArrowUpToLine className="h-3 w-3" />
-                          Làm bìa
-                        </button>
-                      ) : (
-                        <span className="text-xs text-white/75 px-1">
-                          Đang là ảnh bìa
-                        </span>
-                      )}
-
-                      <button
-                        type="button"
-                        disabled={
-                          index === activeAlbumPhotos.length - 1 || isPending
-                        }
-                        onClick={() => handleMoveIndex(index, index + 1)}
-                        title="Di chuyển ra sau"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/20 disabled:opacity-35 cursor-pointer"
-                      >
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between gap-2 p-3">
-                  {inlineEditId === photo.id ? (
-                    <input
-                      type="text"
-                      value={inlineTitleValue}
-                      onChange={(e) => setInlineTitleValue(e.target.value)}
-                      onBlur={() => commitInlineTitle(photo)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") commitInlineTitle(photo);
-                        if (e.key === "Escape") setInlineEditId(null);
-                      }}
-                      className="h-8 flex-1 rounded-lg border bg-background px-2.5 text-xs font-medium focus:border-primary focus:outline-none"
-                      autoFocus
-                    />
-                  ) : (
+                  <div className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-1 rounded-xl bg-black/75 p-1.5 text-white backdrop-blur-md opacity-95 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button
                       type="button"
-                      onClick={() => {
-                        setInlineEditId(photo.id);
-                        setInlineTitleValue(photo.title);
-                      }}
-                      title="Bấm để sửa nhanh tên tác phẩm"
-                      className="min-w-0 flex-1 text-left text-xs font-semibold truncate hover:text-primary cursor-pointer"
+                      disabled={index === 0 || isPending}
+                      onClick={() => handleMoveIndex(index, index - 1)}
+                      title="Di chuyển lên trước"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/20 disabled:opacity-35 cursor-pointer"
                     >
-                      {photo.title}
+                      <ArrowLeft className="h-3.5 w-3.5" />
                     </button>
-                  )}
+
+                    {index > 0 ? (
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => handleMoveIndex(index, 0)}
+                        title="Đưa lên đầu làm ảnh bìa"
+                        className="inline-flex h-7 items-center gap-1 rounded-lg bg-white/15 px-2 text-xs font-medium hover:bg-white/25 cursor-pointer"
+                      >
+                        <ArrowUpToLine className="h-3 w-3" />
+                        Làm bìa
+                      </button>
+                    ) : (
+                      <span className="text-xs text-white/75 px-1">
+                        Đang là ảnh bìa
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={
+                        index === activeAlbumPhotos.length - 1 || isPending
+                      }
+                      onClick={() => handleMoveIndex(index, index + 1)}
+                      title="Di chuyển ra sau"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/20 disabled:opacity-35 cursor-pointer"
+                    >
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Chân thẻ gọn gàng: hiển thị Album & nút Sửa / Xóa */}
+                <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+                  <span className="min-w-0 flex-1 text-xs text-muted-foreground truncate">
+                    {photo.album_name}
+                  </span>
 
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={() => openEditModal(photo)}
-                      title="Chỉnh sửa chi tiết / Chuyển album"
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                      title="Đổi Album / Danh mục / Thay ảnh"
+                      className="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
                     >
                       <Pencil className="h-3.5 w-3.5" />
+                      <span>Sửa</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDeletePhoto(photo)}
+                      onClick={() => handleDeletePhoto(photo, index)}
                       title="Xóa ảnh"
                       className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer"
                     >
@@ -902,7 +831,7 @@ export function PortfolioClient({
         </div>
       )}
 
-      {/* Modal chỉnh sửa chi tiết tác phẩm */}
+      {/* Modal chỉnh sửa ảnh (Chỉ Danh mục, Album & Thay ảnh) */}
       {editingPhoto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <form
@@ -910,7 +839,7 @@ export function PortfolioClient({
             className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl space-y-4"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold">Chỉnh sửa tác phẩm</h2>
+              <h2 className="text-base font-bold">Chỉnh sửa ảnh</h2>
               <button
                 type="button"
                 onClick={() => setEditingPhoto(null)}
@@ -921,19 +850,6 @@ export function PortfolioClient({
             </div>
 
             <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium mb-1">
-                  Tên tác phẩm
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="h-10 w-full rounded-xl border bg-background px-3 text-sm focus:border-primary focus:outline-none"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium mb-1">
@@ -958,11 +874,17 @@ export function PortfolioClient({
                   </label>
                   <input
                     type="text"
+                    list="portfolio-album-suggestions"
                     required
                     value={editAlbum}
                     onChange={(e) => setEditAlbum(e.target.value)}
                     className="h-10 w-full rounded-xl border bg-background px-3 text-sm focus:border-primary focus:outline-none"
                   />
+                  <datalist id="portfolio-album-suggestions">
+                    {existingAlbumsForEditGroup.map((name) => (
+                      <option key={name} value={name} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
 
@@ -1049,11 +971,11 @@ export function PortfolioClient({
           >
             <img
               src={activeAlbumPhotos[lightboxIndex].image_url}
-              alt={activeAlbumPhotos[lightboxIndex].title}
+              alt={`${activeAlbumName} - Ảnh ${lightboxIndex + 1}`}
               className="max-h-[80vh] w-auto rounded-xl object-contain"
             />
             <p className="text-sm font-medium text-white">
-              #{lightboxIndex + 1} • {activeAlbumPhotos[lightboxIndex].title}
+              #{lightboxIndex + 1} / {activeAlbumPhotos.length} • {activeAlbumName}
             </p>
           </div>
 

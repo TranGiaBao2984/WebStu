@@ -35,7 +35,7 @@ function AlbumCard({ album }: { album: AlbumSummary }) {
       }}
       className="group block"
     >
-      <div className="relative aspect-[2/3] overflow-hidden bg-[#1f1b16] border border-[#F7F3E4]/10">
+      <div className="relative aspect-2/3 overflow-hidden bg-[#1f1b16] border border-[#F7F3E4]/10">
         <img
           src={activePhoto?.image_url}
           alt={album.name}
@@ -57,7 +57,7 @@ function AlbumCard({ album }: { album: AlbumSummary }) {
           </div>
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-[#171410]/85 via-transparent to-transparent opacity-80 group-hover:opacity-95 transition-opacity flex flex-col justify-end p-6">
+        <div className="absolute inset-0 bg-linear-to-t from-[#171410]/85 via-transparent to-transparent opacity-80 group-hover:opacity-95 transition-opacity flex flex-col justify-end p-6">
           <span className="text-[11px] uppercase tracking-[0.18em] text-[#a39e93] mb-1">
             {isHovered ? "Đang xem trước • Nhấn để mở" : `${album.count} tác phẩm`}
           </span>
@@ -182,12 +182,9 @@ export function CustomerPortfolioClient({
         <p className="text-xs uppercase tracking-[0.2em] text-[#a39e93] mb-2">
           Portfolio Collections
         </p>
-        <p className="text-sm text-[#a39e93] max-w-md mx-auto">
-          Rê chuột vào từng album để xem trước hình ảnh hoặc nhấn để mở toàn bộ bộ sưu tập.
-        </p>
       </div>
 
-      <main className="flex-1 max-w-[1400px] w-full mx-auto px-[4vw] pb-24 space-y-20">
+      <main className="flex-1 max-w-350 w-full mx-auto px-[4vw] pb-24 space-y-20">
         {(activeTab === "ALL" || activeTab === "Concept") && (
           <GroupSection
             id="concepts-section"

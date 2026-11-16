@@ -124,7 +124,7 @@ export async function savePortfolioPhotoAction(input: {
   id?: string;
   group_name: MainGroup;
   album_name: string;
-  title: string;
+  title?: string;
   image_url: string;
   sort_order?: number;
 }): Promise<void> {
@@ -143,11 +143,11 @@ export async function savePortfolioPhotoAction(input: {
   }
 
   const cleanAlbum = input.album_name.trim().normalize("NFC");
-  const cleanTitle = input.title.trim().normalize("NFC");
-
-  if (!cleanAlbum || !cleanTitle) {
-    throw new Error("Vui lòng điền đầy đủ thông tin Album và Tên tác phẩm.");
+  if (!cleanAlbum) {
+    throw new Error("Vui lòng nhập tên Album.");
   }
+
+  const cleanTitle = (input.title?.trim() || cleanAlbum).normalize("NFC");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
@@ -284,7 +284,7 @@ export async function renamePortfolioAlbumAction(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from("portfolio_photos")
-    .update({ album_name: cleanNewName })
+    .update({ album_name: cleanNewName, title: cleanNewName })
     .eq("group_name", groupName)
     .eq("album_name", oldAlbumName.normalize("NFC"));
 
