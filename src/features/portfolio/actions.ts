@@ -14,11 +14,9 @@ const ALLOWED_MIME_TYPES = new Set([
 
 function hasValidImageSignature(bytes: Uint8Array, mimeType: string): boolean {
   if (bytes.length < 12) return false;
-  // JPEG: FF D8 FF
   if (mimeType === "image/jpeg") {
     return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
   }
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
   if (mimeType === "image/png") {
     return (
       bytes[0] === 0x89 &&
@@ -27,7 +25,6 @@ function hasValidImageSignature(bytes: Uint8Array, mimeType: string): boolean {
       bytes[3] === 0x47
     );
   }
-  // WEBP: "RIFF" .... "WEBP"
   if (mimeType === "image/webp") {
     return (
       bytes[0] === 0x52 &&
@@ -40,7 +37,6 @@ function hasValidImageSignature(bytes: Uint8Array, mimeType: string): boolean {
       bytes[11] === 0x50
     );
   }
-  // AVIF: .... "ftyp"
   if (mimeType === "image/avif") {
     return (
       bytes[4] === 0x66 &&
@@ -57,6 +53,12 @@ function extractStoragePath(publicUrl: string): string | null {
   const idx = publicUrl.indexOf(marker);
   if (idx === -1) return null;
   return decodeURIComponent(publicUrl.slice(idx + marker.length));
+}
+
+function revalidatePortfolioRoutes() {
+  revalidatePath("/customer");
+  revalidatePath("/customer/[slug]", "page");
+  revalidatePath("/portfolio");
 }
 
 export async function uploadPortfolioImageAction(
@@ -124,6 +126,7 @@ export async function savePortfolioPhotoAction(input: {
   album_name: string;
   title: string;
   image_url: string;
+  sort_order?: number;
 }): Promise<void> {
   const supabase = await createClient();
   const {
@@ -139,14 +142,10 @@ export async function savePortfolioPhotoAction(input: {
     throw new Error("Đường dẫn ảnh phải sử dụng giao thức bảo mật HTTPS.");
   }
 
-  const payload = {
-    group_name: input.group_name,
-    album_name: input.album_name.trim().normalize("NFC"),
-    title: input.title.trim().normalize("NFC"),
-    image_url: cleanUrl,
-  };
+  const cleanAlbum = input.album_name.trim().normalize("NFC");
+  const cleanTitle = input.title.trim().normalize("NFC");
 
-  if (!payload.album_name || !payload.title) {
+  if (!cleanAlbum || !cleanTitle) {
     throw new Error("Vui lòng điền đầy đủ thông tin Album và Tên tác phẩm.");
   }
 
@@ -154,18 +153,81 @@ export async function savePortfolioPhotoAction(input: {
   const db = supabase as any;
 
   if (input.id) {
+    const updatePayload: Record<string, unknown> = {
+      group_name: input.group_name,
+      album_name: cleanAlbum,
+      title: cleanTitle,
+      image_url: cleanUrl,
+    };
+    if (typeof input.sort_order === "number") {
+      updatePayload.sort_order = input.sort_order;
+    }
+
     const { error } = await db
       .from("portfolio_photos")
-      .update(payload)
+      .update(updatePayload)
       .eq("id", input.id);
     if (error) throw new Error(error.message);
   } else {
-    const { error } = await db.from("portfolio_photos").insert(payload);
+    let nextOrder = typeof input.sort_order === "number" ? input.sort_order : 0;
+    if (typeof input.sort_order !== "number") {
+      const { data: maxRow } = await db
+        .from("portfolio_photos")
+        .select("sort_order")
+        .eq("group_name", input.group_name)
+        .eq("album_name", cleanAlbum)
+        .order("sort_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      nextOrder = typeof maxRow?.sort_order === "number" ? maxRow.sort_order + 1 : 0;
+    }
+
+    const { error } = await db.from("portfolio_photos").insert({
+      group_name: input.group_name,
+      album_name: cleanAlbum,
+      title: cleanTitle,
+      image_url: cleanUrl,
+      sort_order: nextOrder,
+    });
     if (error) throw new Error(error.message);
   }
 
-  revalidatePath("/customer");
-  revalidatePath("/portfolio");
+  revalidatePortfolioRoutes();
+}
+
+export async function reorderPortfolioPhotosAction(
+  orderedIds: string[]
+): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Bạn không có quyền sắp xếp ảnh.");
+  }
+
+  if (!orderedIds.length) return;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
+
+  const results = await Promise.all(
+    orderedIds.map((id, index) =>
+      db
+        .from("portfolio_photos")
+        .update({ sort_order: index })
+        .eq("id", id)
+    )
+  );
+
+  const failed = results.find((r) => r.error);
+  if (failed?.error) {
+    throw new Error(`Không thể lưu thứ tự ảnh: ${failed.error.message}`);
+  }
+
+  revalidatePortfolioRoutes();
 }
 
 export async function deletePortfolioPhotoAction(id: string): Promise<void> {
@@ -197,8 +259,7 @@ export async function deletePortfolioPhotoAction(id: string): Promise<void> {
     }
   }
 
-  revalidatePath("/customer");
-  revalidatePath("/portfolio");
+  revalidatePortfolioRoutes();
 }
 
 export async function renamePortfolioAlbumAction(
@@ -229,8 +290,7 @@ export async function renamePortfolioAlbumAction(
 
   if (error) throw new Error(error.message);
 
-  revalidatePath("/customer");
-  revalidatePath("/portfolio");
+  revalidatePortfolioRoutes();
 }
 
 export async function deletePortfolioAlbumAction(
@@ -272,6 +332,5 @@ export async function deletePortfolioAlbumAction(
     await supabase.storage.from("portfolio").remove(pathsToRemove);
   }
 
-  revalidatePath("/customer");
-  revalidatePath("/portfolio");
+  revalidatePortfolioRoutes();
 }
