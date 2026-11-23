@@ -1,21 +1,16 @@
-import {  listPortfolioPhotos , listPortfolioAlbumMeta } from "@/features/portfolio/queries";
+import { listPortfolioPhotos, listPortfolioAlbumMeta } from "@/features/portfolio/queries";
 import { PortfolioClient } from "@/components/portfolio/portfolio-client";
 import type { PortfolioPhoto } from "@/features/portfolio/types";
 
 export default async function PortfolioManagerPage() {
-  const albumMeta = await listPortfolioAlbumMeta();
-  let photos: PortfolioPhoto[] = [];
-  let dbError: string | null = null;
+  const [metaResult, photosResult] = await Promise.allSettled([
+    listPortfolioAlbumMeta(),
+    listPortfolioPhotos(),
+  ]);
 
-  try {
-    photos = await listPortfolioPhotos();
-  } catch (err) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    dbError =
-      err instanceof Error
-        ? err.message
-        : "Chưa kết nối được bảng portfolio_photos trên Supabase.";
-  }
+  const albumMeta = metaResult.status === "fulfilled" ? metaResult.value : [];
+  const photos: PortfolioPhoto[] =
+    photosResult.status === "fulfilled" ? photosResult.value : [];
 
   return <PortfolioClient initialPhotos={photos} initialAlbumMeta={albumMeta} />;
 }
