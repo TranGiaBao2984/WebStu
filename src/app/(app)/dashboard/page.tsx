@@ -8,9 +8,7 @@ import {
   Wallet,
   Images,
 } from "lucide-react";
-import { listBookings, listAllScheduleSessions } from "@/features/bookings/queries";
-import { getMonthlyFinanceReport } from "@/features/finance/queries";
-import { listAlbums } from "@/features/albums/queries";
+import { getDashboardSummary } from "@/features/dashboard/queries";
 import { formatVND } from "@/lib/money";
 import {
   formatDateVN,
@@ -26,22 +24,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default async function DashboardPage() {
   const monthStart = getCurrentMonthStartHCM();
   const currentMonthLabel = monthStart.slice(0, 7);
-
-  const [bookings, sessions, financeReport, albums] = await Promise.all([
-    listBookings(),
-    listAllScheduleSessions(),
-    getMonthlyFinanceReport(monthStart),
-    listAlbums(),
-  ]);
-
   const todayKey = getDateKeyHCM();
-  const upcomingSessions = sessions
-    .filter((s) => getDateKeyHCM(s.startIso) >= todayKey)
-    .slice(0, 6);
 
-  const albumsWaitingAction = albums.filter((a) =>
-    ["client_done", "retouching"].includes(a.status)
-  );
+  const { bookings, upcomingSessions, financeReport, albumsWaitingCount } =
+    await getDashboardSummary(monthStart, todayKey);
 
   const report = financeReport ?? {
     delivered_sales: 0,
@@ -154,7 +140,7 @@ export default async function DashboardPage() {
                 <Images className="h-4 w-4 shrink-0 text-primary" />
               </div>
               <p className="mt-1.5 sm:mt-2 text-base sm:text-xl font-bold">
-                {albumsWaitingAction.length} album
+                {albumsWaitingCount} album
               </p>
               <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground truncate">
                 Chờ/đang retouch
