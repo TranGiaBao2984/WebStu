@@ -159,11 +159,45 @@ export async function createBookingAction(
 export async function deleteBookingAction(bookingId: string): Promise<{ error?: string }> {
   const supabase = await createClient();
 
-  // Dọn các bảng con liên quan (nếu chưa cấu hình ON DELETE CASCADE)
-  await supabase.from("payments").delete().eq("booking_id", bookingId);
-  await supabase.from("booking_sessions").delete().eq("booking_id", bookingId);
-  await supabase.from("booking_items").delete().eq("booking_id", bookingId);
+  // 1. Gỡ liên kết Album chọn ảnh & Chi phí (giữ nguyên dữ liệu độc lập, không làm mất album/sổ quỹ)
+  const { error: albumErr } = await supabase
+    .from("albums")
+    .update({ booking_id: null })
+    .eq("booking_id", bookingId);
+  if (albumErr) return { error: albumErr.message };
 
+  const { error: expErr } = await supabase
+    .from("expenses")
+    .update({ booking_id: null, scope: "general" })
+    .eq("booking_id", bookingId);
+  if (expErr) return { error: expErr.message };
+
+  // 2. Xóa các bản ghi phụ thuộc bắt buộc vào lịch hẹn
+  const { error: docErr } = await supabase
+    .from("booking_documents")
+    .delete()
+    .eq("booking_id", bookingId);
+  if (docErr) return { error: docErr.message };
+
+  const { error: payErr } = await supabase
+    .from("payments")
+    .delete()
+    .eq("booking_id", bookingId);
+  if (payErr) return { error: payErr.message };
+
+  const { error: sessErr } = await supabase
+    .from("booking_sessions")
+    .delete()
+    .eq("booking_id", bookingId);
+  if (sessErr) return { error: sessErr.message };
+
+  const { error: itemErr } = await supabase
+    .from("booking_items")
+    .delete()
+    .eq("booking_id", bookingId);
+  if (itemErr) return { error: itemErr.message };
+
+  // 3. Xóa lịch hẹn chính
   const { error } = await supabase.from("bookings").delete().eq("id", bookingId);
   if (error) {
     return { error: error.message };
@@ -171,6 +205,8 @@ export async function deleteBookingAction(bookingId: string): Promise<{ error?: 
 
   revalidatePath("/bookings");
   revalidatePath("/bookings/schedule");
+  revalidatePath("/bookings/documents");
+  revalidatePath("/albums");
   revalidatePath("/dashboard");
   revalidatePath("/clients");
   revalidatePath("/finance");
