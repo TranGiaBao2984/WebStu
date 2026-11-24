@@ -79,7 +79,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* 4 Thẻ chỉ số nhanh: 2 cột trên Điện thoại/iPad, 4 cột trên Desktop */}
+      {/* 4 Thẻ chỉ số nhanh */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Link href="/finance" className="block">
           <Card className="h-full transition-colors hover:border-primary/50">
@@ -201,7 +201,7 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Bảng 5 cột tiến độ: Vuốt ngang Kanban trên Điện thoại/iPad, 5 cột trên Desktop */}
+      {/* Bảng 5 cột tiến độ */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">{vi.dashboard.pipelineTitle}</h2>

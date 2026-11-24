@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { loginAction } from "@/features/auth/actions";
 import { vi } from "@/i18n/vi";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+const INPUT_CLASS =
+  "h-9 w-full min-w-0 rounded-lg border border-input bg-transparent px-3 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -45,26 +47,28 @@ export function LoginForm() {
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="email">{vi.auth.emailLabel}</Label>
-        <Input
+        <input
           id="email"
           type="email"
           autoComplete="email"
           placeholder={vi.auth.emailPlaceholder}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          className={INPUT_CLASS}
         />
         {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="password">{vi.auth.passwordLabel}</Label>
-        <Input
+        <input
           id="password"
           type="password"
           autoComplete="current-password"
           placeholder={vi.auth.passwordPlaceholder}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          className={INPUT_CLASS}
         />
         {fieldErrors.password && (
           <p className="text-xs text-destructive">{fieldErrors.password}</p>

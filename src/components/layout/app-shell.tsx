@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, use, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -35,11 +35,36 @@ const NAV_ITEMS = [
   { href: "/settings", label: vi.nav.settings, icon: Settings },
 ] as const;
 
+function ResolvedStudioName({
+  promise,
+  className,
+}: {
+  promise: Promise<string>;
+  className: string;
+}) {
+  const name = use(promise);
+  return <span className={className}>{name}</span>;
+}
+
+function StudioNameText({
+  studioNamePromise,
+  className,
+}: {
+  studioNamePromise: Promise<string>;
+  className: string;
+}) {
+  return (
+    <Suspense fallback={<span className={className}>{vi.common.appName}</span>}>
+      <ResolvedStudioName promise={studioNamePromise} className={className} />
+    </Suspense>
+  );
+}
+
 export function AppShell({
-  studioName,
+  studioNamePromise,
   children,
 }: {
-  studioName: string;
+  studioNamePromise: Promise<string>;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -65,7 +90,10 @@ export function AppShell({
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Camera className="h-5 w-5" />
           </div>
-          <span className="truncate font-semibold tracking-tight">{studioName}</span>
+          <StudioNameText
+            studioNamePromise={studioNamePromise}
+            className="truncate font-semibold tracking-tight"
+          />
         </div>
 
         <nav className="flex-1 space-y-1 p-3">
@@ -118,9 +146,10 @@ export function AppShell({
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Camera className="h-4 w-4" />
           </div>
-          <span className="truncate font-semibold text-sm sm:text-base">
-            {studioName}
-          </span>
+          <StudioNameText
+            studioNamePromise={studioNamePromise}
+            className="truncate font-semibold text-sm sm:text-base"
+          />
         </div>
 
         <form action={logoutAction}>
@@ -146,7 +175,10 @@ export function AppShell({
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Camera className="h-4 w-4" />
                 </div>
-                <span className="truncate font-semibold text-sm">{studioName}</span>
+                <StudioNameText
+                  studioNamePromise={studioNamePromise}
+                  className="truncate font-semibold text-sm"
+                />
               </div>
               <button
                 type="button"
