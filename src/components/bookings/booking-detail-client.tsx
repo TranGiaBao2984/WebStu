@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Trash2, CalendarClock, Wallet, Package, FileText, Eye, RefreshCw, Printer, X } from "lucide-react";
 import {
+  openOrCreateBookingDocumentAction,
   createBookingDocumentAction,
   syncBookingDocumentAction,
   deleteBookingDocumentAction,
@@ -71,6 +72,23 @@ export function BookingDetailClient({
   const [payKind, setPayKind] = useState<"deposit" | "balance" | "refund">("balance");
   const [payAmount, setPayAmount] = useState(Math.max(0, financials.remaining));
   const [payMethod, setPayMethod] = useState("Chuyển khoản");
+
+  const handleQuickOpenDocument = () => {
+    if (documents.length > 0) {
+      setPreviewDoc(documents[0]);
+      return;
+    }
+    startTransition(async () => {
+      setNotice(null);
+      const res = await openOrCreateBookingDocumentAction(booking.id);
+      if (res.error) {
+        setNotice({ type: "err", text: res.error });
+      } else if (res.document) {
+        setPreviewDoc(res.document);
+        router.refresh();
+      }
+    });
+  };
 
   const handleDeleteBooking = () => {
     if (
@@ -196,6 +214,17 @@ export function BookingDetailClient({
               {client.phone ? ` — ${client.phone}` : ""}
             </div>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            onClick={() => handleQuickOpenDocument()}
+            className="border-primary/30 text-primary hover:bg-primary/10"
+          >
+            <FileText className="mr-1.5 h-4 w-4" />
+            Phiếu xác nhận
+          </Button>
           <Button
             type="button"
             variant="destructive"

@@ -6,15 +6,13 @@ import { vi } from "@/i18n/vi";
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; tab?: string }>;
+  searchParams: Promise<{ status?: string; q?: string }>;
 }) {
-  const { status, q, tab } = await searchParams;
+  const { status, q } = await searchParams;
   const activeStatus = status ?? "all";
-  const hasFilter = activeStatus !== "all" || Boolean(q?.trim());
 
-  const [bookings, allBookings, documents] = await Promise.all([
+  const [bookings, documents] = await Promise.all([
     listBookings({ status: activeStatus, search: q }),
-    hasFilter ? listBookings() : Promise.resolve(undefined),
     listBookingDocuments(),
   ]);
 
@@ -29,8 +27,6 @@ export default async function BookingsPage({
         activeStatus={activeStatus}
         initialSearch={q ?? ""}
         documents={documents}
-        allBookings={allBookings ?? bookings}
-        initialTab={tab === "documents" ? "documents" : "bookings"}
       />
     </div>
   );

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getBookingDetail } from "@/features/bookings/queries";
 import { getStudioSettings } from "@/features/settings/queries";
 import type { Json } from "@/types/database";
-import type { DocumentSnapshot } from "./queries";
+import type { BookingDocumentRow, DocumentSnapshot } from "./queries";
 
 async function buildSnapshotPayload(bookingId: string): Promise<DocumentSnapshot | null> {
   const [detail, studio] = await Promise.all([
@@ -53,9 +53,51 @@ async function buildSnapshotPayload(bookingId: string): Promise<DocumentSnapshot
   };
 }
 
+export async function openOrCreateBookingDocumentAction(
+  bookingId: string
+): Promise<{ error?: string; document?: BookingDocumentRow }> {
+  if (!bookingId) return { error: "Không xác định được lịch hẹn." };
+
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("booking_documents")
+    .select("*")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    return { document: existing };
+  }
+
+  const snapshot = await buildSnapshotPayload(bookingId);
+  if (!snapshot) return { error: "Không tìm thấy dữ liệu lịch hẹn." };
+
+  const docCode = `PXN-${snapshot.booking.code.slice(-6)}-${Date.now().toString().slice(-4)}`;
+
+  const { data: created, error } = await supabase
+    .from("booking_documents")
+    .insert({
+      code: docCode,
+      booking_id: bookingId,
+      snapshot: snapshot as unknown as Json,
+      synced_at: new Date().toISOString(),
+    })
+    .select("*")
+    .single();
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/bookings");
+  revalidatePath(`/bookings/${bookingId}`);
+  return { document: created };
+}
+
 export async function createBookingDocumentAction(
   bookingId: string
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; document?: BookingDocumentRow }> {
   if (!bookingId) return { error: "Vui lòng chọn lịch hẹn cần xuất phiếu." };
 
   const snapshot = await buildSnapshotPayload(bookingId);
@@ -64,41 +106,47 @@ export async function createBookingDocumentAction(
   const supabase = await createClient();
   const docCode = `PXN-${snapshot.booking.code.slice(-6)}-${Date.now().toString().slice(-4)}`;
 
-  const { error } = await supabase.from("booking_documents").insert({
-    code: docCode,
-    booking_id: bookingId,
-    snapshot: snapshot as unknown as Json,
-    synced_at: new Date().toISOString(),
-  });
+  const { data: created, error } = await supabase
+    .from("booking_documents")
+    .insert({
+      code: docCode,
+      booking_id: bookingId,
+      snapshot: snapshot as unknown as Json,
+      synced_at: new Date().toISOString(),
+    })
+    .select("*")
+    .single();
 
   if (error) return { error: error.message };
 
-  revalidatePath("/bookings/documents");
   revalidatePath("/bookings");
-  return {};
+  revalidatePath(`/bookings/${bookingId}`);
+  return { document: created };
 }
 
 export async function syncBookingDocumentAction(
   docId: string,
   bookingId: string
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; document?: BookingDocumentRow }> {
   const snapshot = await buildSnapshotPayload(bookingId);
   if (!snapshot) return { error: "Lịch hẹn gốc đã bị xóa nên không thể đồng bộ." };
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("booking_documents")
     .update({
       snapshot: snapshot as unknown as Json,
       synced_at: new Date().toISOString(),
     })
-    .eq("id", docId);
+    .eq("id", docId)
+    .select("*")
+    .single();
 
   if (error) return { error: error.message };
 
-  revalidatePath("/bookings/documents");
   revalidatePath("/bookings");
-  return {};
+  revalidatePath(`/bookings/${bookingId}`);
+  return { document: updated };
 }
 
 export async function deleteBookingDocumentAction(docId: string): Promise<{ error?: string }> {
@@ -106,7 +154,6 @@ export async function deleteBookingDocumentAction(docId: string): Promise<{ erro
   const { error } = await supabase.from("booking_documents").delete().eq("id", docId);
   if (error) return { error: error.message };
 
-  revalidatePath("/bookings/documents");
   revalidatePath("/bookings");
   return {};
 }

@@ -13,6 +13,7 @@ import {
   Camera,
   Menu,
   X,
+  ChevronDown,
   CalendarCheck,
   Images,
   Wallet,
@@ -29,6 +30,7 @@ const TOP_ITEMS = [
 
 const NAV_GROUPS = [
   {
+    key: "customers",
     title: "Khách hàng",
     icon: UsersRound,
     items: [
@@ -38,6 +40,7 @@ const NAV_GROUPS = [
     ],
   },
   {
+    key: "profile",
     title: "Profile",
     icon: Bell,
     items: [
@@ -85,6 +88,12 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Mặc định đóng toàn bộ mục con, chỉ xổ xuống khi người dùng bấm
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const isActive = (href: string) => {
     if (href === "/bookings") {
@@ -98,108 +107,126 @@ export function AppShell({
   };
 
   const renderNavSections = (onNavigate?: () => void) => (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        {TOP_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
+    <div className="space-y-1.5">
+      {TOP_ITEMS.map((item) => {
+        const Icon = item.icon;
+        const active = isActive(item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors",
+              active
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-foreground/85 hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <Icon
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                active
+                "h-4 w-4 shrink-0",
+                active ? "text-primary-foreground" : "text-muted-foreground"
+              )}
+            />
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+
+      {NAV_GROUPS.map((group) => {
+        const GroupIcon = group.icon;
+        const isOpen = Boolean(openGroups[group.key]);
+        const groupHasActive = group.items.some((sub) => isActive(sub.href));
+
+        return (
+          <div key={group.key} className="space-y-1">
+            <button
+              type="button"
+              onClick={() => toggleGroup(group.key)}
+              aria-expanded={isOpen}
+              className={cn(
+                "flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors cursor-pointer",
+                groupHasActive && !isOpen
                   ? "bg-primary/10 text-primary font-semibold"
                   : "text-foreground/85 hover:bg-accent hover:text-accent-foreground"
               )}
             >
-              <Icon
+              <span className="flex items-center gap-3">
+                <GroupIcon
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    groupHasActive && !isOpen ? "text-primary" : "text-muted-foreground"
+                  )}
+                />
+                <span>{group.title}</span>
+              </span>
+              <ChevronDown
                 className={cn(
-                  "h-4 w-4 shrink-0",
-                  active ? "text-primary" : "text-muted-foreground"
+                  "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                  isOpen && "rotate-180 text-foreground"
                 )}
               />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
+            </button>
 
-      {NAV_GROUPS.map((group) => {
-        const GroupIcon = group.icon;
-        const groupHasActive = group.items.some((sub) => isActive(sub.href));
-        return (
-          <div key={group.title} className="space-y-1">
-            <div
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 text-sm font-medium select-none",
-                groupHasActive ? "text-foreground font-semibold" : "text-foreground/85"
-              )}
-            >
-              <GroupIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span>{group.title}</span>
-            </div>
-
-            <div className="space-y-1 pl-7">
-              {group.items.map((sub) => {
-                const active = isActive(sub.href);
-                return (
-                  <Link
-                    key={sub.href}
-                    href={sub.href}
-                    onClick={onNavigate}
-                    className={cn(
-                      "block rounded-xl px-3 py-2 text-sm transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground font-medium shadow-2xs"
-                        : "text-foreground/80 hover:bg-accent hover:text-accent-foreground"
-                    )}
-                  >
-                    {sub.label}
-                  </Link>
-                );
-              })}
-            </div>
+            {isOpen && (
+              <div className="space-y-1 pl-7 pt-0.5">
+                {group.items.map((sub) => {
+                  const active = isActive(sub.href);
+                  return (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      onClick={onNavigate}
+                      className={cn(
+                        "block rounded-xl px-3.5 py-2 text-sm transition-colors",
+                        active
+                          ? "bg-primary text-primary-foreground font-medium shadow-2xs"
+                          : "text-foreground/80 hover:bg-accent hover:text-accent-foreground"
+                      )}
+                    >
+                      {sub.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })}
 
-      <div className="space-y-1">
-        {BOTTOM_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
+      {BOTTOM_ITEMS.map((item) => {
+        const Icon = item.icon;
+        const active = isActive(item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors",
+              active
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-foreground/85 hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <Icon
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                active
-                  ? "bg-primary text-primary-foreground font-semibold"
-                  : "text-foreground/85 hover:bg-accent hover:text-accent-foreground"
+                "h-4 w-4 shrink-0",
+                active ? "text-primary-foreground" : "text-muted-foreground"
               )}
-            >
-              <Icon
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  active ? "text-primary-foreground" : "text-muted-foreground"
-                )}
-              />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
+            />
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
     </div>
   );
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
       {/* Sidebar cố định trên Laptop / Desktop (>= 1024px) */}
-      <aside className="hidden w-64 shrink-0 border-r bg-card lg:flex lg:flex-col">
+      <aside className="hidden w-64 shrink-0 border-r bg-card lg:flex lg:flex-col print:hidden">
         <div className="flex h-16 items-center gap-2.5 border-b px-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Camera className="h-5 w-5" />
@@ -229,7 +256,7 @@ export function AppShell({
       </aside>
 
       {/* Header trên Điện thoại & iPad (< 1024px) */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-card/95 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-card/95 px-4 backdrop-blur lg:hidden print:hidden">
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
@@ -260,7 +287,7 @@ export function AppShell({
       {mobileMenuOpen && (
         <div
           onClick={() => setMobileMenuOpen(false)}
-          className="fixed inset-0 z-50 bg-black/55 backdrop-blur-xs lg:hidden"
+          className="fixed inset-0 z-50 bg-black/55 backdrop-blur-xs lg:hidden print:hidden"
         >
           <aside
             onClick={(e) => e.stopPropagation()}
@@ -306,12 +333,12 @@ export function AppShell({
         </div>
       )}
 
-      <main className="flex-1 min-w-0 pb-22 md:pb-8">
-        <div className="mx-auto max-w-6xl p-3.5 sm:p-5 lg:p-8">{children}</div>
+      <main className="flex-1 min-w-0 pb-22 md:pb-8 print:pb-0">
+        <div className="mx-auto max-w-6xl p-3.5 sm:p-5 lg:p-8 print:p-0">{children}</div>
       </main>
 
       {/* Thanh điều hướng nhanh dưới đáy trên Điện thoại (< 768px) */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t bg-card/95 backdrop-blur pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t bg-card/95 backdrop-blur pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] md:hidden print:hidden">
         {[
           { href: "/dashboard", label: "Tổng quan", icon: LayoutGrid },
           { href: "/bookings", label: "Đặt lịch", icon: CalendarCheck },
