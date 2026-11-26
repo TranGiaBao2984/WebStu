@@ -50,3 +50,17 @@ export async function listBookingDocuments(): Promise<BookingDocumentRow[]> {
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+
+export async function listBookingDocumentsByBookingId(
+  bookingId: string
+): Promise<BookingDocumentRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("booking_documents")
+    .select("*")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}

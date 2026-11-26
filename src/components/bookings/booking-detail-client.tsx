@@ -3,7 +3,13 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, Trash2, CalendarClock, Wallet, Package } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, CalendarClock, Wallet, Package, FileText, Eye, RefreshCw, Printer, X } from "lucide-react";
+import {
+  createBookingDocumentAction,
+  syncBookingDocumentAction,
+  deleteBookingDocumentAction,
+} from "@/features/documents/actions";
+import type { BookingDocumentRow, DocumentSnapshot } from "@/features/documents/queries";
 import { BOOKING_STATUSES, type BookingStatusValue } from "@/features/bookings/schema";
 import {
   deleteBookingAction,
@@ -32,10 +38,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export function BookingDetailClient({
   detail,
   packages,
+  documents = [],
 }: {
   detail: BookingDetailData;
   packages: ServicePackageRow[];
+  documents?: BookingDocumentRow[];
 }) {
+  const [previewDoc, setPreviewDoc] = useState<BookingDocumentRow | null>(null);
   const router = useRouter();
   const { booking, shortCode, client, items, sessions, payments, financials } = detail;
   const [notice, setNotice] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -537,7 +546,246 @@ export function BookingDetailClient({
         </CardContent>
       </Card>
 
-      {/* 5. Thông tin chung */}
+      {/* 5. Phiếu xác nhận dịch vụ (Snapshot) */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4 text-primary" />
+              <span>Phiếu xác nhận dịch vụ</span>
+            </CardTitle>
+            <CardDescription>
+              Xuất và in phiếu báo giá / xác nhận lịch chụp cố định cho lịch hẹn này
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            disabled={isPending}
+            onClick={() =>
+              startTransition(async () => {
+                setNotice(null);
+                const res = await createBookingDocumentAction(booking.id);
+                if (res.error) setNotice({ type: "err", text: res.error });
+                else {
+                  setNotice({ type: "ok", text: "Đã xuất Phiếu xác nhận mới cho lịch hẹn này." });
+                  router.refresh();
+                }
+              })
+            }
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            Xuất phiếu mới
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {documents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Chưa có phiếu xác nhận nào cho lịch này. Bấm &ldquo;Xuất phiếu mới&rdquo; để tạo.
+            </p>
+          ) : (
+            <div className="space-y-2.5">
+              {documents.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-3 text-sm"
+                >
+                  <div>
+                    <span className="font-mono font-bold text-primary">{doc.code}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      Cập nhật: {formatDateTimeVN(doc.synced_at)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setPreviewDoc(doc)}
+                    >
+                      <Eye className="mr-1 h-3.5 w-3.5" />
+                      Xem & In
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isPending}
+                      onClick={() =>
+                        startTransition(async () => {
+                          setNotice(null);
+                          const res = await syncBookingDocumentAction(doc.id, doc.booking_id);
+                          if (res.error) setNotice({ type: "err", text: res.error });
+                          else {
+                            setNotice({ type: "ok", text: `Đã đồng bộ phiếu ${doc.code}.` });
+                            router.refresh();
+                          }
+                        })
+                      }
+                    >
+                      <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                      Đồng bộ
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      disabled={isPending}
+                      onClick={() => {
+                        if (!window.confirm(`Xóa phiếu xác nhận "${doc.code}"?`)) return;
+                        startTransition(async () => {
+                          const res = await deleteBookingDocumentAction(doc.id);
+                          if (res.error) setNotice({ type: "err", text: res.error });
+                          else {
+                            if (previewDoc?.id === doc.id) setPreviewDoc(null);
+                            setNotice({ type: "ok", text: "Đã xóa phiếu xác nhận." });
+                            router.refresh();
+                          }
+                        });
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {previewDoc && (() => {
+        const activeSnap = previewDoc.snapshot as unknown as DocumentSnapshot;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-background p-6 shadow-2xl print:static print:max-h-none print:border-none print:shadow-none">
+              <div className="mb-4 flex items-center justify-between border-b pb-3 print:hidden">
+                <span className="text-sm font-semibold text-muted-foreground">
+                  Bản xem trước phiếu xác nhận
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button type="button" size="sm" onClick={() => window.print()}>
+                    <Printer className="mr-1.5 h-4 w-4" />
+                    In / Lưu PDF
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setPreviewDoc(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-5 text-sm">
+                <div className="flex items-start justify-between border-b pb-4">
+                  <div>
+                    <h2 className="text-xl font-bold uppercase tracking-tight">
+                      {activeSnap.studio.name}
+                    </h2>
+                    {activeSnap.studio.phone && (
+                      <p className="text-xs text-muted-foreground">
+                        Hotline: {activeSnap.studio.phone}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-base font-bold text-primary">PHIẾU XÁC NHẬN DỊCH VỤ</p>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      Mã phiếu: {previewDoc.code}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Ngày xuất: {formatDateVN(previewDoc.synced_at)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 rounded-lg bg-muted/50 p-3.5 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Khách hàng</p>
+                    <p className="font-semibold">{activeSnap.client.name}</p>
+                    <p className="text-xs">{activeSnap.client.phone || "Chưa có SĐT"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Buổi chụp</p>
+                    <p className="font-semibold">
+                      {activeSnap.booking.shortCode} — {activeSnap.booking.title}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    1. Thời gian & Địa điểm chụp
+                  </h3>
+                  {activeSnap.sessions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Chưa ấn định khung giờ cụ thể.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {activeSnap.sessions.map((s, idx) => (
+                        <div key={idx} className="rounded-md border px-3 py-2 text-xs">
+                          <span className="font-semibold">
+                            {formatDateVN(s.startIso)} ({formatTimeVN(s.startIso)} –{" "}
+                            {formatTimeVN(s.endIso)})
+                          </span>
+                          {s.location ? ` • Địa điểm: ${s.location}` : ""}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    2. Hạng mục dịch vụ & Chi phí
+                  </h3>
+                  <div className="divide-y rounded-lg border">
+                    {activeSnap.items.map((it, idx) => (
+                      <div key={idx} className="flex items-center justify-between px-3 py-2">
+                        <span>{it.name}</span>
+                        <span className="font-semibold">{formatVND(it.amount)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between bg-muted/40 px-3 py-2 font-bold">
+                      <span>Tổng cộng</span>
+                      <span>{formatVND(activeSnap.financials.total)}</span>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2 text-emerald-700">
+                      <span>Đã thanh toán / Cọc</span>
+                      <span className="font-semibold">{formatVND(activeSnap.financials.paid)}</span>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2 font-bold text-primary">
+                      <span>Số tiền còn lại</span>
+                      <span>{formatVND(activeSnap.financials.remaining)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {activeSnap.booking.note && (
+                  <div>
+                    <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      3. Ghi chú buổi chụp
+                    </h3>
+                    <p className="rounded-md border bg-muted/30 p-2.5 text-xs">
+                      {activeSnap.booking.note}
+                    </p>
+                  </div>
+                )}
+
+                {activeSnap.studio.doc_footer && (
+                  <div className="border-t pt-3 text-center text-xs italic text-muted-foreground">
+                    {activeSnap.studio.doc_footer}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 6. Thông tin chung */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{vi.bookings.detail.infoSection}</CardTitle>

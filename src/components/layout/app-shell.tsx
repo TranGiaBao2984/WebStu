@@ -4,35 +4,51 @@ import { Suspense, use, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
-  CalendarCheck,
-  CalendarDays,
-  FileText,
-  Users,
-  Images,
-  Globe,
-  Wallet,
-  Settings,
+  LayoutGrid,
+  Compass,
+  UsersRound,
+  Bell,
+  Mail,
   LogOut,
   Camera,
   Menu,
   X,
+  CalendarCheck,
+  Images,
+  Wallet,
 } from "lucide-react";
 import { vi } from "@/i18n/vi";
 import { logoutAction } from "@/features/auth/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS = [
-  { href: "/dashboard", label: vi.nav.dashboard, icon: LayoutDashboard },
-  { href: "/bookings", label: vi.nav.bookings, icon: CalendarCheck },
-  { href: "/bookings/schedule", label: vi.nav.schedule, icon: CalendarDays },
-  { href: "/bookings/documents", label: vi.nav.documents, icon: FileText },
-  { href: "/clients", label: vi.nav.clients, icon: Users },
-  { href: "/albums", label: vi.nav.albums, icon: Images },
-  { href: "/portfolio", label: "Trang Portfolio", icon: Globe },
-  { href: "/finance", label: vi.nav.finance, icon: Wallet },
-  { href: "/settings", label: vi.nav.settings, icon: Settings },
+const TOP_ITEMS = [
+  { href: "/dashboard", label: "Tổng quan", icon: LayoutGrid },
+  { href: "/bookings/schedule", label: "Lịch làm việc", icon: Compass },
+] as const;
+
+const NAV_GROUPS = [
+  {
+    title: "Khách hàng",
+    icon: UsersRound,
+    items: [
+      { href: "/bookings", label: "Quản lý đặt lịch" },
+      { href: "/albums", label: "Album ảnh" },
+      { href: "/clients", label: "Data khách hàng" },
+    ],
+  },
+  {
+    title: "Profile",
+    icon: Bell,
+    items: [
+      { href: "/settings", label: "Giao diện website" },
+      { href: "/portfolio", label: "Album mẫu" },
+    ],
+  },
+] as const;
+
+const BOTTOM_ITEMS = [
+  { href: "/finance", label: "Tài chính", icon: Mail },
 ] as const;
 
 function ResolvedStudioName({
@@ -75,12 +91,110 @@ export function AppShell({
       return (
         pathname === "/bookings" ||
         (pathname.startsWith("/bookings/") &&
-          !pathname.startsWith("/bookings/schedule") &&
-          !pathname.startsWith("/bookings/documents"))
+          !pathname.startsWith("/bookings/schedule"))
       );
     }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
+
+  const renderNavSections = (onNavigate?: () => void) => (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        {TOP_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                active
+                  ? "bg-primary/10 text-primary font-semibold"
+                  : "text-foreground/85 hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <Icon
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  active ? "text-primary" : "text-muted-foreground"
+                )}
+              />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {NAV_GROUPS.map((group) => {
+        const GroupIcon = group.icon;
+        const groupHasActive = group.items.some((sub) => isActive(sub.href));
+        return (
+          <div key={group.title} className="space-y-1">
+            <div
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 text-sm font-medium select-none",
+                groupHasActive ? "text-foreground font-semibold" : "text-foreground/85"
+              )}
+            >
+              <GroupIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span>{group.title}</span>
+            </div>
+
+            <div className="space-y-1 pl-7">
+              {group.items.map((sub) => {
+                const active = isActive(sub.href);
+                return (
+                  <Link
+                    key={sub.href}
+                    href={sub.href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "block rounded-xl px-3 py-2 text-sm transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground font-medium shadow-2xs"
+                        : "text-foreground/80 hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    {sub.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="space-y-1">
+        {BOTTOM_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                active
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-foreground/85 hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <Icon
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  active ? "text-primary-foreground" : "text-muted-foreground"
+                )}
+              />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
@@ -96,26 +210,8 @@ export function AppShell({
           />
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground/80 hover:bg-accent hover:text-accent-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto p-3">
+          {renderNavSections()}
         </nav>
 
         <div className="border-t p-3">
@@ -190,27 +286,8 @@ export function AppShell({
               </button>
             </div>
 
-            <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "text-foreground/85 hover:bg-accent hover:text-accent-foreground"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+            <nav className="flex-1 overflow-y-auto p-3">
+              {renderNavSections(() => setMobileMenuOpen(false))}
             </nav>
 
             <div className="border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
@@ -236,10 +313,10 @@ export function AppShell({
       {/* Thanh điều hướng nhanh dưới đáy trên Điện thoại (< 768px) */}
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t bg-card/95 backdrop-blur pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] md:hidden">
         {[
-          NAV_ITEMS[0],
-          NAV_ITEMS[1],
-          NAV_ITEMS[6],
-          NAV_ITEMS[7],
+          { href: "/dashboard", label: "Tổng quan", icon: LayoutGrid },
+          { href: "/bookings", label: "Đặt lịch", icon: CalendarCheck },
+          { href: "/albums", label: "Album ảnh", icon: Images },
+          { href: "/finance", label: "Tài chính", icon: Wallet },
         ].map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);

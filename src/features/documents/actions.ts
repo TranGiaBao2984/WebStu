@@ -74,6 +74,7 @@ export async function createBookingDocumentAction(
   if (error) return { error: error.message };
 
   revalidatePath("/bookings/documents");
+  revalidatePath("/bookings");
   return {};
 }
 
@@ -96,6 +97,7 @@ export async function syncBookingDocumentAction(
   if (error) return { error: error.message };
 
   revalidatePath("/bookings/documents");
+  revalidatePath("/bookings");
   return {};
 }
 
@@ -105,5 +107,6 @@ export async function deleteBookingDocumentAction(docId: string): Promise<{ erro
   if (error) return { error: error.message };
 
   revalidatePath("/bookings/documents");
+  revalidatePath("/bookings");
   return {};
 }
